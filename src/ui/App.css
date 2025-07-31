@@ -26,12 +26,14 @@ body {
 
 /* Header styles */
 .header {
-  background-color: #000000;
-  border-bottom: 1px solid #000000;
+  background-color: #111111;
+  border-bottom: 1px solid #333333;
   padding: 16px 24px;
   flex-shrink: 0;
   display: flex;
   justify-content: center;
+  align-items: center;
+  position: relative;
 }
 
 .toggle-container {
@@ -70,6 +72,27 @@ body {
   border-color: #007AFF;
 }
 
+.back-button {
+  position: absolute;
+  left: 24px;
+  background-color: transparent;
+  color: #007AFF;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.back-button:hover {
+  color: #0056CC;
+}
+
+.project-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
 /* Main content area */
 .main-content {
   flex: 1;
@@ -83,12 +106,14 @@ body {
   padding: 24px;
   display: flex;
   flex-direction: column;
+  background-color: #000000;
 }
 
 .add-project-section {
   margin-bottom: 32px;
   display: flex;
   justify-content: flex-start;
+  background-color: #000000;
 }
 
 .add-project-button {
@@ -106,8 +131,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  min-width: 200px;
-  min-height: 200px;
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
 }
 
 .add-project-button:hover {
@@ -132,12 +158,126 @@ body {
   color: inherit;
 }
 
+.add-project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 300px;
+  flex-shrink: 0;
+}
+
+.project-input {
+  background-color: #111111;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.project-input:focus {
+  border-color: #007AFF;
+}
+
+.form-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.save-button {
+  background-color: #007AFF;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.save-button:hover {
+  background-color: #0056CC;
+}
+
+.cancel-button {
+  background-color: transparent;
+  color: #888888;
+  border: 1px solid #333333;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-button:hover {
+  color: #ffffff;
+  border-color: #444444;
+}
+
 .projects-container {
   flex: 1;
   background-color: #000000;
   border-radius: 12px;
   padding: 24px;
   overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 200px);
+  gap: 16px;
+  align-content: flex-start;
+}
+
+.project-card {
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.project-card:hover {
+  background-color: #333333;
+  border-color: #007AFF;
+  transform: translateY(-2px);
+}
+
+.project-card h3 {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  word-wrap: break-word;
+  width: 100%;
+}
+
+.kanban-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888888;
+}
+
+.kanban-placeholder h2 {
+  color: #ffffff;
+  margin-bottom: 16px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.kanban-placeholder p {
+  color: #888888;
+  font-size: 16px;
 }
 
 /* Calendar view styles */
