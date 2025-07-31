@@ -12,6 +12,8 @@ function App() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [showAddProject, setShowAddProject] = useState(false)
   const [newProjectTitle, setNewProjectTitle] = useState('')
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
+  const [editingProjectTitle, setEditingProjectTitle] = useState('')
 
   const handleAddProject = () => {
     if (newProjectTitle.trim()) {
@@ -33,6 +35,28 @@ function App() {
     setSelectedProject(null)
   }
 
+  const handleEditProject = (projectId: string, currentTitle: string) => {
+    setEditingProjectId(projectId)
+    setEditingProjectTitle(currentTitle)
+  }
+
+  const handleSaveProjectEdit = () => {
+    if (editingProjectTitle.trim()) {
+      setProjects(projects.map(project => 
+        project.id === editingProjectId 
+          ? { ...project, title: editingProjectTitle.trim() }
+          : project
+      ))
+      setEditingProjectId(null)
+      setEditingProjectTitle('')
+    }
+  }
+
+  const handleCancelProjectEdit = () => {
+    setEditingProjectId(null)
+    setEditingProjectTitle('')
+  }
+
   if (selectedProject) {
     return (
       <div className="app">
@@ -44,7 +68,26 @@ function App() {
             ← Back to Projects
           </button>
           <div className="project-title">
-            {projects.find(p => p.id === selectedProject)?.title}
+            {editingProjectId === selectedProject ? (
+              <div className="edit-project-title">
+                <input
+                  type="text"
+                  value={editingProjectTitle}
+                  onChange={(e) => setEditingProjectTitle(e.target.value)}
+                  className="edit-title-input"
+                  autoFocus
+                  onKeyPress={(e) => e.key === 'Enter' && handleSaveProjectEdit()}
+                  onBlur={handleSaveProjectEdit}
+                />
+              </div>
+            ) : (
+              <span 
+                onClick={() => handleEditProject(selectedProject, projects.find(p => p.id === selectedProject)?.title || '')}
+                className="clickable-project-title"
+              >
+                {projects.find(p => p.id === selectedProject)?.title}
+              </span>
+            )}
           </div>
         </header>
         <main className="main-content">
@@ -130,7 +173,28 @@ function App() {
                   className="project-card"
                   onClick={() => handleProjectClick(project.id)}
                 >
-                  <h3>{project.title}</h3>
+                  {editingProjectId === project.id ? (
+                    <input
+                      type="text"
+                      value={editingProjectTitle}
+                      onChange={(e) => setEditingProjectTitle(e.target.value)}
+                      className="edit-card-title-input"
+                      autoFocus
+                      onKeyPress={(e) => e.key === 'Enter' && handleSaveProjectEdit()}
+                      onBlur={handleSaveProjectEdit}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <h3 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditProject(project.id, project.title)
+                      }}
+                      className="clickable-project-title"
+                    >
+                      {project.title}
+                    </h3>
+                  )}
                 </div>
               ))}
             </div>
