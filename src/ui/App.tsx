@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Kanban } from '../components/ui/kanban'
 import './App.css'
 
 interface Project {
@@ -91,10 +92,7 @@ function App() {
           </div>
         </header>
         <main className="main-content">
-          <div className="kanban-placeholder">
-            <h2>Kanban Board</h2>
-            <p>Kanban functionality coming soon...</p>
-          </div>
+          <Kanban projectId={selectedProject} />
         </main>
       </div>
     )
