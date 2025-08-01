@@ -518,6 +518,16 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                     {showCardOptions === task.id && (
                       <div className="card-options-dropdown">
                         <button
+                          className="close-options-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowCardOptions(null);
+                          }}
+                          title="Close"
+                        >
+                          ×
+                        </button>
+                        <button
                           className="card-option-button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -751,15 +761,26 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                 }}
               />
             </div>
-          ) : (
-            <button 
-              className="add-column-button"
-              onClick={() => setShowAddColumn(true)}
-            >
-              <div className="plus-icon">+</div>
-              <span>Add Column</span>
-            </button>
-          )}
+                      ) : (
+              <div className="add-column-container">
+                <button 
+                  className="add-column-button"
+                  onClick={() => setShowAddColumn(true)}
+                >
+                  <div className="plus-icon">+</div>
+                  <span>Add List</span>
+                </button>
+                <button 
+                  className="start-working-button"
+                  onClick={() => {
+                    // TODO: Implement start working functionality
+                    console.log('Start working clicked');
+                  }}
+                >
+                  Start working
+                </button>
+              </div>
+            )}
         </div>
       </div>
     </div>
