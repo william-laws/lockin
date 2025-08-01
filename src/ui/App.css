@@ -588,6 +588,579 @@ body {
   word-wrap: break-word;
 }
 
+/* Task Header and Actions */
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.task-title {
+  color: #ffffff;
+  font-size: 14px;
+  margin: 0;
+  word-wrap: break-word;
+  flex: 1;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.task-title:hover {
+  color: #007AFF;
+}
+
+.edit-task-title-input {
+  background-color: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  flex: 1;
+}
+
+.edit-task-title-input:focus {
+  border-bottom: 2px solid #007AFF;
+}
+
+.task-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.task-action-button {
+  background-color: transparent;
+  border: none;
+  color: #CCC5B9;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-action-button:hover {
+  background-color: rgba(204, 197, 185, 0.1);
+  color: #ffffff;
+}
+
+.task-action-button svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Task Indicators */
+.task-indicators {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.indicator {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: rgba(204, 197, 185, 0.1);
+  color: #CCC5B9;
+}
+
+.note-indicator {
+  background-color: rgba(0, 122, 255, 0.1);
+  color: #007AFF;
+}
+
+.checklist-indicator {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.schedule-indicator {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: #111111;
+  border: 1px solid #333333;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-content h3 {
+  color: #ffffff;
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.note-textarea {
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  width: 100%;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.note-textarea:focus {
+  border-color: #007AFF;
+}
+
+.schedule-date-input {
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  width: 100%;
+}
+
+.schedule-date-input:focus {
+  border-color: #007AFF;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  background-color: transparent;
+  color: #888888;
+  border: 1px solid #333333;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-actions button:last-child {
+  background-color: #007AFF;
+  color: #ffffff;
+  border-color: #007AFF;
+}
+
+.modal-actions button:hover {
+  background-color: #0056CC;
+  border-color: #0056CC;
+}
+
+.modal-actions button:first-child:hover {
+  background-color: #333333;
+  color: #ffffff;
+  border-color: #444444;
+}
+
+/* Checklist Styles */
+.checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #007AFF;
+}
+
+.checklist-item-input {
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  flex: 1;
+}
+
+.checklist-item-input:focus {
+  border-color: #007AFF;
+}
+
+.remove-checklist-item {
+  background-color: transparent;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 16px;
+  transition: background-color 0.2s ease;
+}
+
+.remove-checklist-item:hover {
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+.add-checklist-item {
+  background-color: transparent;
+  color: #007AFF;
+  border: 1px dashed #007AFF;
+  padding: 8px 12px 12px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.add-checklist-item:hover {
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+/* Task Note Display */
+.task-note {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: rgba(0, 122, 255, 0.05);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+  border-radius: 8px;
+}
+
+.note-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.note-icon {
+  font-size: 14px;
+}
+
+.edit-note-button,
+.delete-note-button {
+  background-color: transparent;
+  border: none;
+  color: #CCC5B9;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-note-button:hover {
+  color: #007AFF;
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+.delete-note-button:hover {
+  color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+.edit-note-button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.note-content {
+  color: #ffffff;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+/* Task Checklist Display */
+.task-checklist {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: rgba(34, 197, 94, 0.05);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 8px;
+}
+
+.checklist-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.checklist-icon {
+  font-size: 14px;
+}
+
+.checklist-progress {
+  color: #22c55e;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.edit-checklist-button {
+  background-color: transparent;
+  border: none;
+  color: #CCC5B9;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-checklist-button:hover {
+  color: #22c55e;
+  background-color: rgba(34, 197, 94, 0.1);
+}
+
+.edit-checklist-button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.checklist-items-display {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checklist-item-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checklist-item-display input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #22c55e;
+}
+
+.checklist-item-display span {
+  color: #ffffff;
+  font-size: 13px;
+  flex: 1;
+}
+
+.checklist-item-display span.completed {
+  text-decoration: line-through;
+  color: #888888;
+}
+
+/* Task Schedule Display */
+.task-schedule {
+  margin-top: 8px;
+}
+
+.schedule-indicator {
+  color: #f59e0b;
+  font-size: 12px;
+  padding: 4px 8px;
+  background-color: rgba(245, 158, 11, 0.1);
+  border-radius: 4px;
+}
+
+/* Inline Editors */
+.inline-note-editor,
+.inline-checklist-editor {
+  margin-top: 12px;
+  padding: 12px 12px 20px 12px;
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 8px;
+}
+
+.note-editor-header,
+.checklist-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.inline-note-textarea {
+  background-color: #111111;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  width: 100%;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.inline-note-textarea:focus {
+  border-color: #007AFF;
+}
+
+.inline-checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.inline-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-checklist-item-input {
+  background-color: #111111;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  flex: 1;
+}
+
+.inline-checklist-item-input:focus {
+  border-color: #22c55e;
+}
+
+.inline-editor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.inline-editor-actions .cancel-button {
+  background-color: transparent;
+  color: #888888;
+  border: 1px solid #333333;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inline-editor-actions .cancel-button:hover {
+  background-color: #333333;
+  color: #ffffff;
+  border-color: #444444;
+}
+
+.inline-editor-actions .save-button {
+  background-color: #007AFF;
+  color: #ffffff;
+  border: 1px solid #007AFF;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inline-editor-actions .save-button:hover {
+  background-color: #0056CC;
+  border-color: #0056CC;
+}
+
+/* Card Options Dropdown */
+.card-options-dropdown {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  z-index: 100;
+}
+
+.card-option-button {
+  background-color: transparent;
+  border: 1px solid #444444;
+  color: #ffffff;
+  padding: 4px 8px;
+  width: 45%;
+  text-align: center;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.card-option-button:hover {
+  background-color: #333333;
+  border-color: #555555;
+}
+
+.card-option-button.delete {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.card-option-button.delete:hover {
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
 /* Drop Indicator Styles */
 .drop-indicator {
   height: 60px;
@@ -700,4 +1273,9 @@ body {
 
 .task-input::placeholder {
   color: #888888;
+}
+
+/* Make task card position relative for dropdown positioning */
+.task-card {
+  position: relative;
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Kanban } from '../components/ui/kanban'
 import './App.css'
+import React from 'react';
 
 interface Project {
   id: string;
@@ -8,13 +9,41 @@ interface Project {
 }
 
 function App() {
+  // Initialize projects from localStorage
+  const getInitialProjects = (): Project[] => {
+    try {
+      const savedProjects = localStorage.getItem('projects');
+      if (savedProjects) {
+        return JSON.parse(savedProjects);
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    }
+    return [];
+  };
+
   const [activeTab, setActiveTab] = useState<'project' | 'calendar'>('project')
-  const [projects, setProjects] = useState<Project[]>([])
+  const [projects, setProjects] = useState<Project[]>(getInitialProjects);
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [showAddProject, setShowAddProject] = useState(false)
   const [newProjectTitle, setNewProjectTitle] = useState('')
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [editingProjectTitle, setEditingProjectTitle] = useState('')
+
+  // Save projects to localStorage whenever projects change
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('projects', JSON.stringify(projects));
+      console.log('Saved projects to localStorage:', projects.length, 'projects');
+    } catch (error) {
+      console.error('Error saving projects:', error);
+    }
+  }, [projects]);
+
+  // Debug selectedProject changes
+  React.useEffect(() => {
+    console.log('selectedProject changed to:', selectedProject);
+  }, [selectedProject]);
 
   const handleAddProject = () => {
     if (newProjectTitle.trim()) {
@@ -29,10 +58,12 @@ function App() {
   }
 
   const handleProjectClick = (projectId: string) => {
+    console.log('Selecting project:', projectId);
     setSelectedProject(projectId)
   }
 
   const handleBackToProjects = () => {
+    console.log('Going back to projects, current selectedProject:', selectedProject);
     setSelectedProject(null)
   }
 
