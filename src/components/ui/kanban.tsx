@@ -31,8 +31,10 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [showAddTask, setShowAddTask] = useState<string | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<number | null>(null);
 
   const addColumn = () => {
     if (newColumnTitle.trim()) {
@@ -68,23 +70,24 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     return tasks.filter(task => task.column === columnId);
   };
 
-  const handleDragStart = (e: React.DragEvent, columnId: string) => {
+  // Column dragging handlers
+  const handleColumnDragStart = (e: React.DragEvent, columnId: string) => {
     setDraggedColumn(columnId);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent, columnId: string) => {
+  const handleColumnDragOver = (e: React.DragEvent, columnId: string) => {
     e.preventDefault();
     if (draggedColumn && draggedColumn !== columnId) {
       setDragOverColumn(columnId);
     }
   };
 
-  const handleDragLeave = () => {
+  const handleColumnDragLeave = () => {
     setDragOverColumn(null);
   };
 
-  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
+  const handleColumnDrop = (e: React.DragEvent, targetColumnId: string) => {
     e.preventDefault();
     if (draggedColumn && draggedColumn !== targetColumnId) {
       const draggedIndex = columns.findIndex(col => col.id === draggedColumn);
@@ -100,9 +103,74 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     setDragOverColumn(null);
   };
 
-  const handleDragEnd = () => {
+  const handleColumnDragEnd = () => {
     setDraggedColumn(null);
     setDragOverColumn(null);
+  };
+
+  // Task dragging handlers
+  const handleTaskDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTask(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.stopPropagation(); // Prevent column drag from starting
+  };
+
+  const handleTaskDragOver = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    if (draggedTask) {
+      setDragOverColumn(columnId);
+      
+      // Calculate drop position based on mouse position
+      const columnContent = e.currentTarget as HTMLElement;
+      const rect = columnContent.getBoundingClientRect();
+      const mouseY = e.clientY;
+      const tasks = getTasksForColumn(columnId);
+      
+      // Find the position where the task should be dropped
+      let position = tasks.length; // Default to end
+      
+      for (let i = 0; i < tasks.length; i++) {
+        const taskElement = columnContent.querySelector(`[data-task-id="${tasks[i].id}"]`) as HTMLElement;
+        if (taskElement) {
+          const taskRect = taskElement.getBoundingClientRect();
+          if (mouseY < taskRect.top + taskRect.height / 2) {
+            position = i;
+            break;
+          }
+        }
+      }
+      
+      setDropPosition(position);
+    }
+  };
+
+  const handleTaskDragLeave = () => {
+    setDragOverColumn(null);
+    setDropPosition(null);
+  };
+
+  const handleTaskDrop = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    if (draggedTask) {
+      const taskToMove = tasks.find(task => task.id === draggedTask);
+      if (taskToMove && taskToMove.column !== columnId) {
+        const updatedTasks = tasks.map(task => 
+          task.id === draggedTask 
+            ? { ...task, column: columnId }
+            : task
+        );
+        setTasks(updatedTasks);
+      }
+    }
+    setDraggedTask(null);
+    setDragOverColumn(null);
+    setDropPosition(null);
+  };
+
+  const handleTaskDragEnd = () => {
+    setDraggedTask(null);
+    setDragOverColumn(null);
+    setDropPosition(null);
   };
 
   return (
@@ -118,11 +186,11 @@ export const Kanban = ({ projectId }: KanbanProps) => {
               dragOverColumn === column.id && "drag-over"
             )}
             draggable
-            onDragStart={(e) => handleDragStart(e, column.id)}
-            onDragOver={(e) => handleDragOver(e, column.id)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, column.id)}
-            onDragEnd={handleDragEnd}
+            onDragStart={(e) => handleColumnDragStart(e, column.id)}
+            onDragOver={(e) => handleColumnDragOver(e, column.id)}
+            onDragLeave={handleColumnDragLeave}
+            onDrop={(e) => handleColumnDrop(e, column.id)}
+            onDragEnd={handleColumnDragEnd}
           >
             <div className="column-header">
               <h3 className="column-title">{column.title}</h3>
@@ -143,7 +211,12 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                 </button>
               </div>
             </div>
-            <div className="column-content">
+            <div 
+              className="column-content"
+              onDragOver={(e) => handleTaskDragOver(e, column.id)}
+              onDragLeave={handleTaskDragLeave}
+              onDrop={(e) => handleTaskDrop(e, column.id)}
+            >
               {showAddTask === column.id && (
                 <div className="add-task-form">
                   <input
@@ -165,11 +238,31 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                   />
                 </div>
               )}
-              {getTasksForColumn(column.id).map(task => (
-                <div key={task.id} className="task-card">
-                  <p>{task.title}</p>
+              
+              {getTasksForColumn(column.id).map((task, taskIndex) => (
+                <div key={task.id}>
+                  <div 
+                    className={cn(
+                      "task-card",
+                      draggedTask === task.id && "dragging"
+                    )}
+                    draggable
+                    data-task-id={task.id}
+                    onDragStart={(e) => handleTaskDragStart(e, task.id)}
+                    onDragEnd={handleTaskDragEnd}
+                  >
+                    <p>{task.title}</p>
+                  </div>
                 </div>
               ))}
+              
+              {/* Single drop indicator at the calculated position */}
+              {dragOverColumn === column.id && dropPosition !== null && (
+                <div 
+                  className="drop-indicator"
+                  style={{ order: dropPosition }}
+                />
+              )}
             </div>
           </div>
         ))}
