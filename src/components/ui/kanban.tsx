@@ -4,6 +4,15 @@ import React, { useState } from "react";
 import { FiPlus, FiTrash2, FiEdit3, FiFileText, FiCheckSquare, FiMoreVertical } from "react-icons/fi";
 import { cn } from "../../lib/utils";
 
+// TypeScript interface for Electron API
+declare global {
+  interface Window {
+    electronAPI?: {
+      setFocusMode: (isFocusMode: boolean) => Promise<void>;
+    };
+  }
+}
+
 interface Task {
   id: string;
   title: string;
@@ -11,6 +20,8 @@ interface Task {
   note?: string;
   checklist?: { id: string; text: string; completed: boolean }[];
   scheduledDate?: string;
+  estimatedTime?: string; // HH:MM format
+  actualTime?: string; // HH:MM format
 }
 
 interface Column {
@@ -53,10 +64,10 @@ export const Kanban = ({ projectId }: KanbanProps) => {
       console.error('Error loading columns:', error);
     }
     return [
-      { id: 'for-later', title: 'For Later' },
-      { id: 'todo', title: 'To Do' },
-      { id: 'doing', title: 'Doing' },
-      { id: 'done', title: 'Done' }
+    { id: 'for-later', title: 'For Later' },
+    { id: 'todo', title: 'To Do' },
+    { id: 'doing', title: 'Doing' },
+    { id: 'done', title: 'Done' }
     ];
   };
 
@@ -83,6 +94,15 @@ export const Kanban = ({ projectId }: KanbanProps) => {
 
   // Card options menu
   const [showCardOptions, setShowCardOptions] = useState<string | null>(null);
+
+  // Time tracking state
+  const [editingEstimatedTime, setEditingEstimatedTime] = useState<string | null>(null);
+
+  // Focus mode state
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [focusStartTime, setFocusStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
 
   // Save data to localStorage whenever tasks or columns change
   const saveToLocalStorage = React.useCallback((newTasks: Task[], newColumns: Column[]) => {
@@ -280,6 +300,115 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     setShowCardOptions(null);
   };
 
+  // Time tracking functions
+  const updateActualTime = (taskId: string, newTime: string) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId 
+        ? { ...task, actualTime: newTime }
+        : task
+    ));
+  };
+
+  const addTimeToTask = (taskId: string, minutesToAdd: number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const currentTime = task.actualTime || '00:00';
+    const [hours, minutes] = currentTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + minutesToAdd;
+    const newHours = Math.floor(totalMinutes / 60);
+    const newMinutes = totalMinutes % 60;
+    const newTime = `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+    
+    updateActualTime(taskId, newTime);
+  };
+
+  // Format time from HH:MM to "X hours and Y minutes"
+  const formatTimeToText = (time: string): string => {
+    if (!time || time === '') return '';
+    
+    const [hours, minutes] = time.split(':').map(Number);
+    let result = '';
+    
+    if (hours > 0) {
+      result += `${hours} hour${hours !== 1 ? 's' : ''}`;
+    }
+    
+    if (minutes > 0) {
+      if (result) result += ' and ';
+      result += `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    }
+    
+    return result || '0 minutes';
+  };
+
+  // Focus mode functions
+  const resetAllTaskTimes = () => {
+    setTasks(tasks.map(task => ({
+      ...task,
+      actualTime: '00:00'
+    })));
+  };
+
+  const startFocusMode = async () => {
+    // Reset all task times when starting focus mode
+    resetAllTaskTimes();
+    
+    setIsFocusMode(true);
+    setFocusStartTime(new Date());
+    setElapsedTime(0);
+    setSelectedTaskIndex(0);
+    
+    // Resize window using Electron API
+    if (window.electronAPI) {
+      try {
+        await window.electronAPI.setFocusMode(true);
+      } catch (error) {
+        console.error('Failed to resize window:', error);
+      }
+    }
+  };
+
+  const stopFocusMode = async () => {
+    setIsFocusMode(false);
+    setFocusStartTime(null);
+    setElapsedTime(0);
+    setSelectedTaskIndex(0);
+    
+    // Restore window size using Electron API
+    if (window.electronAPI) {
+      try {
+        await window.electronAPI.setFocusMode(false);
+      } catch (error) {
+        console.error('Failed to restore window:', error);
+      }
+    }
+  };
+
+  const getDoingTasks = () => {
+    return tasks.filter(task => task.column === 'doing');
+  };
+
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Timer effect
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isFocusMode && focusStartTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - focusStartTime.getTime()) / 1000));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isFocusMode, focusStartTime]);
+
   // Column dragging handlers
   const handleColumnDragStart = (e: React.DragEvent, columnId: string) => {
     setDraggedColumn(columnId);
@@ -384,8 +513,22 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   };
 
   return (
-    <div className="kanban-board">
-      <div className={cn("kanban-columns", draggedColumn && "dragging")}>
+    <div className={cn("kanban-board", isFocusMode && "focus-mode")}>
+      {isFocusMode && (
+        <div className="focus-header">
+          <div className="focus-timer">
+            <span className="timer-display">{formatElapsedTime(elapsedTime)}</span>
+          </div>
+          <button 
+            className="stop-focus-button"
+            onClick={stopFocusMode}
+            title="Stop focus mode"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <div className={cn("kanban-columns", draggedColumn && "dragging", isFocusMode && "focus-columns")}>
         {/* Existing Columns */}
         {columns.map((column, index) => (
           <div 
@@ -393,10 +536,11 @@ export const Kanban = ({ projectId }: KanbanProps) => {
             className={cn(
               "kanban-column",
               draggedColumn === column.id && "dragging",
-              dragOverColumn === column.id && "drag-over"
+              dragOverColumn === column.id && "drag-over",
+              isFocusMode && column.id !== 'doing' && "hidden"
             )}
-            draggable
-            onDragStart={(e) => handleColumnDragStart(e, column.id)}
+            draggable={!isFocusMode}
+            onDragStart={!isFocusMode ? (e) => handleColumnDragStart(e, column.id) : undefined}
             onDragOver={(e) => handleColumnDragOver(e, column.id)}
             onDragLeave={handleColumnDragLeave}
             onDrop={(e) => handleColumnDrop(e, column.id)}
@@ -454,7 +598,9 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                   <div 
                     className={cn(
                       "task-card",
-                      draggedTask === task.id && "dragging"
+                      draggedTask === task.id && "dragging",
+                      task.column === 'done' && "done-task",
+                      isFocusMode && column.id === 'doing' && taskIndex === 0 && "focus-active-task"
                     )}
                     draggable
                     data-task-id={task.id}
@@ -622,6 +768,85 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                       </div>
                     )}
 
+                    {/* Time tracking section */}
+                    <div className="task-time-tracking">
+                      <div className="time-input-section">
+                        {editingEstimatedTime === task.id ? (
+                          <input
+                            type="text"
+                            value={task.estimatedTime || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // Auto-format to HH:MM
+                              let formatted = value.replace(/[^0-9]/g, '');
+                              if (formatted.length >= 2) {
+                                formatted = formatted.slice(0, 2) + ':' + formatted.slice(2, 4);
+                              }
+                              if (formatted.length <= 5) {
+                                setTasks(tasks.map(t => 
+                                  t.id === task.id 
+                                    ? { ...t, estimatedTime: formatted }
+                                    : t
+                                ));
+                              }
+                            }}
+                            onBlur={() => {
+                              setEditingEstimatedTime(null);
+                            }}
+                            placeholder="00:00"
+                            className="time-estimate-input"
+                            onClick={(e) => e.stopPropagation()}
+                            maxLength={5}
+                            autoFocus
+                          />
+                        ) : task.estimatedTime && task.estimatedTime !== '' ? (
+                          <span 
+                            className="time-estimate-display"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingEstimatedTime(task.id);
+                            }}
+                          >
+                            {formatTimeToText(task.estimatedTime)}
+                          </span>
+                        ) : (
+                          <input
+                            type="text"
+                            value={task.estimatedTime || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // Auto-format to HH:MM
+                              let formatted = value.replace(/[^0-9]/g, '');
+                              if (formatted.length >= 2) {
+                                formatted = formatted.slice(0, 2) + ':' + formatted.slice(2, 4);
+                              }
+                              if (formatted.length <= 5) {
+                                setTasks(tasks.map(t => 
+                                  t.id === task.id 
+                                    ? { ...t, estimatedTime: formatted }
+                                    : t
+                                ));
+                              }
+                            }}
+                            onBlur={() => {
+                              if (task.estimatedTime && task.estimatedTime !== '') {
+                                setEditingEstimatedTime(null);
+                              }
+                            }}
+                            placeholder="00:00"
+                            className="time-estimate-input"
+                            onClick={(e) => e.stopPropagation()}
+                            maxLength={5}
+                          />
+                        )}
+                      </div>
+                      <div className="time-display-section">
+                        <span className="actual-time">
+                          {task.actualTime || '00:00'}
+                        </span>
+                      </div>
+                    </div>
+
                     {/* Inline note editing for this specific card */}
                     {showNoteModal === task.id && (
                       <div className="inline-note-editor">
@@ -704,6 +929,8 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                         </div>
                       </div>
                     )}
+
+
                   </div>
                 </div>
               ))}
@@ -740,6 +967,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
         ))}
 
         {/* Add Column Button */}
+        {!isFocusMode && (
         <div className="add-column-container">
           {showAddColumn ? (
             <div className="add-column-form">
@@ -761,27 +989,27 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                 }}
               />
             </div>
-                      ) : (
+          ) : (
               <div className="add-column-container">
-                <button 
-                  className="add-column-button"
-                  onClick={() => setShowAddColumn(true)}
-                >
-                  <div className="plus-icon">+</div>
+            <button 
+              className="add-column-button"
+              onClick={() => setShowAddColumn(true)}
+            >
+              <div className="plus-icon">+</div>
                   <span>Add List</span>
                 </button>
-                <button 
+                                <button 
                   className="start-working-button"
                   onClick={() => {
-                    // TODO: Implement start working functionality
-                    console.log('Start working clicked');
+                    startFocusMode();
                   }}
                 >
                   Start working
-                </button>
+            </button>
               </div>
-            )}
+          )}
         </div>
+        )}
       </div>
     </div>
   );

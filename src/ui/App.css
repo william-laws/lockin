@@ -28,17 +28,19 @@ body {
 .header {
   background-color: #111111;
   border-bottom: 1px solid #333333;
-  padding: 16px 24px;
+  padding: 44px 24px 16px 24px; /* Added extra top padding for macOS controls */
   flex-shrink: 0;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
+  -webkit-app-region: drag;
 }
 
 .toggle-container {
   display: flex;
   justify-content: center;
+  -webkit-app-region: no-drag;
 }
 
 .toggle-switch {
@@ -81,6 +83,7 @@ body {
   font-size: 14px;
   cursor: pointer;
   transition: color 0.2s ease;
+  -webkit-app-region: no-drag;
 }
 
 .back-button:hover {
@@ -659,6 +662,311 @@ body {
   font-size: 14px;
   margin: 0;
   word-wrap: break-word;
+}
+
+/* Done task styling */
+.task-card.done-task p,
+.task-card.done-task .task-title {
+  color: #22c55e;
+  text-decoration: line-through;
+}
+
+/* Time Tracking Styles */
+.task-time-tracking {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.time-input-section {
+  display: flex;
+  align-items: center;
+}
+
+.time-estimate-input {
+  background-color: transparent;
+  border: 1px solid #444444;
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  transition: all 0.2s ease;
+  width: 50px;
+  text-align: center;
+}
+
+.time-estimate-input:focus {
+  background-color: #333333;
+  border-color: #555555;
+}
+
+.time-estimate-input::placeholder {
+  color: #888888;
+}
+
+.time-estimate-display {
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.time-estimate-display:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.time-display-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actual-time {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #333333;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.time-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.time-add-button {
+  background-color: transparent;
+  border: 1px solid #444444;
+  color: #888888;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.time-add-button:hover {
+  background-color: #333333;
+  color: #ffffff;
+  border-color: #555555;
+}
+
+/* Time Input Modal */
+.inline-time-editor {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 8px;
+}
+
+.time-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.time-icon {
+  font-size: 14px;
+}
+
+.time-input-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.time-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time-input-group label {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.time-input {
+  background-color: #111111;
+  border: 1px solid #333333;
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #ffffff;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.time-input:focus {
+  border-color: #007AFF;
+}
+
+/* Focus Mode */
+.kanban-board.focus-mode {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100vh;
+  background-color: #000000;
+  border-left: 1px solid #333333;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.5);
+  padding: 0;
+}
+
+.kanban-board.focus-mode .kanban-columns {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.kanban-board.focus-mode .kanban-column {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  min-height: auto;
+}
+
+.kanban-column.hidden {
+  display: none !important;
+}
+
+.focus-active-task {
+  border: 2px solid #EB5E28 !important;
+  box-shadow: 0 0 8px rgba(235, 94, 40, 0.3) !important;
+}
+
+
+
+.focus-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #333333;
+  background-color: #111111;
+  flex-shrink: 0;
+}
+
+.focus-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.timer-label {
+  color: #888888;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.timer-display {
+  color: #007AFF;
+  font-size: 24px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.stop-focus-button {
+  background-color: transparent;
+  border: none;
+  color: #dc2626;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
+}
+
+.stop-focus-button:hover {
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+.focus-tasks {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.focus-tasks-title {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+}
+
+.focus-task {
+  background-color: #222222;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.focus-task:hover {
+  background-color: #333333;
+  border-color: #444444;
+}
+
+.focus-task.selected {
+  background-color: #007AFF;
+  border-color: #007AFF;
+  color: #ffffff;
+}
+
+.focus-task-title {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.focus-task.selected .focus-task-title {
+  color: #ffffff;
+}
+
+.focus-task-estimate {
+  color: #888888;
+  font-size: 12px;
+}
+
+.focus-task.selected .focus-task-estimate {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.focus-no-tasks {
+  color: #888888;
+  font-size: 14px;
+  text-align: center;
+  padding: 40px 20px;
+  font-style: italic;
 }
 
 /* Task Header and Actions */
