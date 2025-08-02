@@ -1352,23 +1352,47 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 2px 0;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.checklist-item-display:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .checklist-item-display input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   accent-color: #22c55e;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.checklist-item-display input[type="checkbox"]:hover {
+  transform: scale(1.1);
 }
 
 .checklist-item-display span {
   color: #ffffff;
   font-size: 13px;
   flex: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.checklist-item-display span:hover {
+  color: #f0f0f0;
 }
 
 .checklist-item-display span.completed {
   text-decoration: line-through;
   color: #888888;
+}
+
+.checklist-item-display span.completed:hover {
+  color: #aaaaaa;
 }
 
 /* Task Schedule Display */

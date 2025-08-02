@@ -102,6 +102,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [focusStartTime, setFocusStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const lastMinuteAddedRef = React.useRef(0);
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
 
   // Save data to localStorage whenever tasks or columns change
@@ -136,9 +137,11 @@ export const Kanban = ({ projectId }: KanbanProps) => {
 
   const addColumn = () => {
     if (newColumnTitle.trim()) {
+      const title = newColumnTitle.trim();
       const newColumn: Column = {
-        id: Math.random().toString(),
-        title: newColumnTitle.trim()
+        // Ensure "Doing" column gets the correct ID for focus mode
+        id: title.toLowerCase() === 'doing' ? 'doing' : Math.random().toString(),
+        title: title
       };
       setColumns([...columns, newColumn]);
       setNewColumnTitle('');
@@ -147,6 +150,11 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   };
 
   const deleteColumn = (columnId: string) => {
+    // Prevent deletion of the "doing" column (by ID or title)
+    const columnToDelete = columns.find(col => col.id === columnId);
+    if (columnId === 'doing' || (columnToDelete && columnToDelete.title.toLowerCase() === 'doing')) {
+      return;
+    }
     setColumns(columns.filter(col => col.id !== columnId));
     setTasks(tasks.filter(task => task.column !== columnId));
   };
@@ -351,9 +359,6 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   };
 
   const startFocusMode = async () => {
-    // Reset all task times when starting focus mode
-    resetAllTaskTimes();
-    
     setIsFocusMode(true);
     setFocusStartTime(new Date());
     setElapsedTime(0);
@@ -370,6 +375,19 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   };
 
   const stopFocusMode = async () => {
+    // Add any remaining partial minutes to the top doing task before stopping
+    if (elapsedTime > 0) {
+      const doingTasks = getDoingTasks();
+      if (doingTasks.length > 0) {
+        const topTask = doingTasks[0]; // First task in doing column
+        const totalMinutes = Math.floor(elapsedTime / 60);
+        const remainingMinutes = totalMinutes - lastMinuteAddedRef.current;
+        if (remainingMinutes > 0) {
+          addTimeToTask(topTask.id, remainingMinutes);
+        }
+      }
+    }
+    
     setIsFocusMode(false);
     setFocusStartTime(null);
     setElapsedTime(0);
@@ -385,8 +403,14 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     }
   };
 
+  // Helper function to find the doing column (by ID or title)
+  const getDoingColumn = () => {
+    return columns.find(col => col.id === 'doing' || col.title.toLowerCase() === 'doing');
+  };
+
   const getDoingTasks = () => {
-    return tasks.filter(task => task.column === 'doing');
+    const doingColumn = getDoingColumn();
+    return doingColumn ? tasks.filter(task => task.column === doingColumn.id) : [];
   };
 
   const formatElapsedTime = (seconds: number): string => {
@@ -399,15 +423,50 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   // Timer effect
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
+    
     if (isFocusMode && focusStartTime) {
+      // Reset the minute counter when focus mode starts
+      lastMinuteAddedRef.current = 0;
+      
       interval = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - focusStartTime.getTime()) / 1000));
+        const newElapsedTime = Math.floor((Date.now() - focusStartTime.getTime()) / 1000);
+        setElapsedTime(newElapsedTime);
+        
+        // Add time to the top doing task every minute
+        const currentMinutes = Math.floor(newElapsedTime / 60);
+        if (currentMinutes > lastMinuteAddedRef.current) {
+          // Use callback pattern to get current tasks
+          setTasks(currentTasks => {
+            const doingColumn = getDoingColumn();
+            const doingTasks = doingColumn ? currentTasks.filter(task => task.column === doingColumn.id) : [];
+            
+            if (doingTasks.length > 0) {
+              const topTask = doingTasks[0];
+              const currentTime = topTask.actualTime || '00:00';
+              const [hours, minutes] = currentTime.split(':').map(Number);
+              const totalMinutes = hours * 60 + minutes + 1;
+              const newHours = Math.floor(totalMinutes / 60);
+              const newMinutes = totalMinutes % 60;
+              const newTime = `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+              
+              return currentTasks.map(task => 
+                task.id === topTask.id 
+                  ? { ...task, actualTime: newTime }
+                  : task
+              );
+            }
+            return currentTasks;
+          });
+          
+          lastMinuteAddedRef.current = currentMinutes;
+        }
       }, 1000);
     }
+    
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isFocusMode, focusStartTime]);
+  }, [isFocusMode, focusStartTime]); // Removed tasks dependency
 
   // Column dragging handlers
   const handleColumnDragStart = (e: React.DragEvent, columnId: string) => {
@@ -533,12 +592,12 @@ export const Kanban = ({ projectId }: KanbanProps) => {
         {columns.map((column, index) => (
           <div 
             key={column.id} 
-            className={cn(
-              "kanban-column",
-              draggedColumn === column.id && "dragging",
-              dragOverColumn === column.id && "drag-over",
-              isFocusMode && column.id !== 'doing' && "hidden"
-            )}
+                                className={cn(
+                      "kanban-column",
+                      draggedColumn === column.id && "dragging",
+                      dragOverColumn === column.id && "drag-over",
+                      isFocusMode && column.id !== 'doing' && column.title.toLowerCase() !== 'doing' && "hidden"
+                    )}
             draggable={!isFocusMode}
             onDragStart={!isFocusMode ? (e) => handleColumnDragStart(e, column.id) : undefined}
             onDragOver={(e) => handleColumnDragOver(e, column.id)}
@@ -556,13 +615,15 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                 >
                   <FiPlus />
                 </button>
-                <button 
-                  className="delete-column-button"
-                  onClick={() => deleteColumn(column.id)}
-                  title="Delete column"
-                >
-                  <FiTrash2 />
-                </button>
+                {column.id !== 'doing' && column.title.toLowerCase() !== 'doing' && (
+                  <button 
+                    className="delete-column-button"
+                    onClick={() => deleteColumn(column.id)}
+                    title="Delete column"
+                  >
+                    <FiTrash2 />
+                  </button>
+                )}
               </div>
             </div>
             <div 
@@ -600,7 +661,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                       "task-card",
                       draggedTask === task.id && "dragging",
                       task.column === 'done' && "done-task",
-                      isFocusMode && column.id === 'doing' && taskIndex === 0 && "focus-active-task"
+                      isFocusMode && (column.id === 'doing' || column.title.toLowerCase() === 'doing') && taskIndex === 0 && "focus-active-task"
                     )}
                     draggable
                     data-task-id={task.id}
@@ -621,47 +682,50 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                       ) : (
                         <p 
                           className="task-title"
-                          onClick={() => startEditingTask(task)}
+                          onClick={!isFocusMode ? () => startEditingTask(task) : undefined}
+                          style={{ cursor: isFocusMode ? 'default' : 'pointer' }}
                         >
                           {task.title}
                         </p>
                       )}
-                      <div className="task-actions">
-                        <button
-                          className="task-action-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditingNote(task);
-                          }}
-                          title="Add note"
-                        >
-                          <FiFileText />
-                        </button>
-                        <button
-                          className="task-action-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditingChecklist(task);
-                          }}
-                          title="Add checklist"
-                        >
-                          <FiCheckSquare />
-                        </button>
-                        <button
-                          className="task-action-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleCardOptions(task.id);
-                          }}
-                          title="Card options"
-                        >
-                          <FiMoreVertical />
-                        </button>
-                      </div>
+                      {!isFocusMode && (
+                        <div className="task-actions">
+                          <button
+                            className="task-action-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditingNote(task);
+                            }}
+                            title="Add note"
+                          >
+                            <FiFileText />
+                          </button>
+                          <button
+                            className="task-action-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditingChecklist(task);
+                            }}
+                            title="Add checklist"
+                          >
+                            <FiCheckSquare />
+                          </button>
+                          <button
+                            className="task-action-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCardOptions(task.id);
+                            }}
+                            title="Card options"
+                          >
+                            <FiMoreVertical />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Card options dropdown */}
-                    {showCardOptions === task.id && (
+                    {!isFocusMode && showCardOptions === task.id && (
                       <div className="card-options-dropdown">
                         <button
                           className="close-options-button"
@@ -696,7 +760,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                     )}
                     
                     {/* Show note content */}
-                    {task.note && (
+                    {!isFocusMode && task.note && (
                       <div className="task-note">
                         <div className="note-header">
                           <span className="note-icon">📝</span>
@@ -733,16 +797,18 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                           <span className="checklist-progress">
                             {task.checklist.filter(item => item.completed).length}/{task.checklist.length}
                           </span>
-                          <button
-                            className="edit-checklist-button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditingChecklist(task);
-                            }}
-                            title="Edit checklist"
-                          >
-                            <FiEdit3 />
-                          </button>
+                          {!isFocusMode && (
+                            <button
+                              className="edit-checklist-button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingChecklist(task);
+                              }}
+                              title="Edit checklist"
+                            >
+                              <FiEdit3 />
+                            </button>
+                          )}
                         </div>
                         <div className="checklist-items-display">
                           {task.checklist.map((item) => (
@@ -750,9 +816,20 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                               <input
                                 type="checkbox"
                                 checked={item.completed}
-                                onChange={() => toggleExistingChecklistItem(task.id, item.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleExistingChecklistItem(task.id, item.id);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
                               />
-                              <span className={item.completed ? 'completed' : ''}>
+                              <span 
+                                className={item.completed ? 'completed' : ''}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExistingChecklistItem(task.id, item.id);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                              >
                                 {item.text}
                               </span>
                             </div>
@@ -762,13 +839,14 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                     )}
 
                     {/* Show schedule indicator */}
-                    {task.scheduledDate && (
+                    {!isFocusMode && task.scheduledDate && (
                       <div className="task-schedule">
                         <span className="schedule-indicator">📅 {task.scheduledDate}</span>
                       </div>
                     )}
 
                     {/* Time tracking section */}
+                    {!isFocusMode && (
                     <div className="task-time-tracking">
                       <div className="time-input-section">
                         {editingEstimatedTime === task.id ? (
@@ -846,9 +924,10 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                         </span>
                       </div>
                     </div>
+                    )}
 
                     {/* Inline note editing for this specific card */}
-                    {showNoteModal === task.id && (
+                    {!isFocusMode && showNoteModal === task.id && (
                       <div className="inline-note-editor">
                         <div className="note-editor-header">
                           <span className="note-icon">📝</span>
@@ -880,7 +959,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                     )}
 
                     {/* Inline checklist editing for this specific card */}
-                    {showChecklistModal === task.id && (
+                    {!isFocusMode && showChecklistModal === task.id && (
                       <div className="inline-checklist-editor">
                         <div className="checklist-editor-header">
                           <span className="checklist-icon">☑️</span>
