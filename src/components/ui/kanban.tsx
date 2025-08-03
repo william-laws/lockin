@@ -22,6 +22,7 @@ interface Task {
   scheduledDate?: string;
   estimatedTime?: string; // HH:MM format
   actualTime?: string; // HH:MM format
+  priority?: 'urgent' | 'upcoming' | 'long-term';
 }
 
 interface Column {
@@ -104,6 +105,15 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const lastMinuteAddedRef = React.useRef(0);
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
+  const [showEmptyDoingWarning, setShowEmptyDoingWarning] = useState(false);
+  
+  // Pause and break state
+  const [isPaused, setIsPaused] = useState(false);
+  const [isBreakMode, setIsBreakMode] = useState(false);
+  const [breakTime, setBreakTime] = useState(300); // 5 minutes in seconds
+  const [breakStartTime, setBreakStartTime] = useState<Date | null>(null);
+  const [pauseStartTime, setPauseStartTime] = useState<Date | null>(null);
+  const [totalPausedTime, setTotalPausedTime] = useState(0);
 
   // Save data to localStorage whenever tasks or columns change
   const saveToLocalStorage = React.useCallback((newTasks: Task[], newColumns: Column[]) => {
@@ -173,7 +183,19 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   };
 
   const getTasksForColumn = (columnId: string) => {
-    return tasks.filter(task => task.column === columnId);
+    const columnTasks = tasks.filter(task => task.column === columnId);
+    
+    // Sort tasks by priority if they're in the "Doing" column
+    if (columnId === 'doing' || columns.find(col => col.id === columnId)?.title.toLowerCase() === 'doing') {
+      return columnTasks.sort((a, b) => {
+        const priorityOrder = { 'urgent': 0, 'upcoming': 1, 'long-term': 2 };
+        const aPriority = a.priority ? priorityOrder[a.priority] : 3;
+        const bPriority = b.priority ? priorityOrder[b.priority] : 3;
+        return aPriority - bPriority;
+      });
+    }
+    
+    return columnTasks;
   };
 
   // Task editing functions
@@ -359,10 +381,25 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   };
 
   const startFocusMode = async () => {
+    // Check if there are any tasks in the doing column
+    const doingTasks = getDoingTasks();
+    if (doingTasks.length === 0) {
+      // Show warning message
+      setShowEmptyDoingWarning(true);
+      // Hide warning after 3 seconds
+      setTimeout(() => {
+        setShowEmptyDoingWarning(false);
+      }, 3000);
+      return; // Don't enter focus mode
+    }
+
     setIsFocusMode(true);
     setFocusStartTime(new Date());
     setElapsedTime(0);
     setSelectedTaskIndex(0);
+    setTotalPausedTime(0);
+    setTotalBreakTime(0);
+    setPauseStartTime(null);
     
     // Resize window using Electron API
     if (window.electronAPI) {
@@ -413,6 +450,89 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     return doingColumn ? tasks.filter(task => task.column === doingColumn.id) : [];
   };
 
+  // Helper function to find the done column (by ID or title)
+  const getDoneColumn = () => {
+    return columns.find(col => col.id === 'done' || col.title.toLowerCase() === 'done');
+  };
+
+  // Complete the active task (move to done column)
+    const completeActiveTask = () => {
+    const doingTasks = getDoingTasks();
+    const doneColumn = getDoneColumn();
+
+    if (doingTasks.length > 0 && doneColumn) {
+      const activeTask = doingTasks[0]; // Top task is the active one
+      setTasks(tasks.map(task =>
+        task.id === activeTask.id
+          ? { ...task, column: doneColumn.id }
+          : task
+      ));
+    }
+  };
+
+  // Pause functionality
+  const togglePause = () => {
+    if (isPaused) {
+      // Resuming - calculate total paused time and update
+      if (pauseStartTime) {
+        const currentPauseDuration = Math.floor((Date.now() - pauseStartTime.getTime()) / 1000);
+        setTotalPausedTime(totalPausedTime + currentPauseDuration);
+        setPauseStartTime(null);
+      }
+    } else {
+      // Pausing - record when we started pausing
+      setPauseStartTime(new Date());
+    }
+    setIsPaused(!isPaused);
+  };
+
+  // Break functionality
+  const startBreak = () => {
+    setIsBreakMode(true);
+    setBreakStartTime(new Date());
+    setBreakTime(300); // Reset to 5 minutes
+  };
+
+  const endBreak = () => {
+    // Calculate total break time and add to total
+    if (breakStartTime) {
+      const breakDuration = Math.floor((Date.now() - breakStartTime.getTime()) / 1000);
+      setTotalBreakTime(totalBreakTime + breakDuration);
+    }
+    
+    setIsBreakMode(false);
+    setBreakStartTime(null);
+    setBreakTime(300);
+  };
+
+  // Priority functions
+  const setTaskPriority = (taskId: string, priority: 'urgent' | 'upcoming' | 'long-term') => {
+    setTasks(tasks.map(task =>
+      task.id === taskId
+        ? { ...task, priority }
+        : task
+    ));
+    setShowPriorityPopup(null);
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return '#ef4444';
+      case 'upcoming': return '#f59e0b';
+      case 'long-term': return '#3b82f6';
+      default: return 'transparent';
+    }
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'Urgent';
+      case 'upcoming': return 'Upcoming';
+      case 'long-term': return 'Long-term';
+      default: return '';
+    }
+  };
+
   const formatElapsedTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -420,16 +540,22 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatBreakTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // Timer effect
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (isFocusMode && focusStartTime) {
+    if (isFocusMode && focusStartTime && !isPaused && !isBreakMode) {
       // Reset the minute counter when focus mode starts
       lastMinuteAddedRef.current = 0;
       
       interval = setInterval(() => {
-        const newElapsedTime = Math.floor((Date.now() - focusStartTime.getTime()) / 1000);
+        const newElapsedTime = Math.floor((Date.now() - focusStartTime.getTime()) / 1000) - totalPausedTime - totalBreakTime;
         setElapsedTime(newElapsedTime);
         
         // Add time to the top doing task every minute
@@ -466,7 +592,35 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isFocusMode, focusStartTime]); // Removed tasks dependency
+  }, [isFocusMode, focusStartTime, isPaused, isBreakMode]); // Added pause and break dependencies
+
+  // Break timer effect
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isBreakMode && breakStartTime) {
+      interval = setInterval(() => {
+        const elapsedBreakTime = Math.floor((Date.now() - breakStartTime.getTime()) / 1000);
+        const remainingTime = Math.max(0, 300 - elapsedBreakTime);
+        setBreakTime(remainingTime);
+        
+        // When break ends, automatically return to focus mode
+        if (remainingTime <= 0) {
+          endBreak();
+        }
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isBreakMode, breakStartTime]);
+
+  // Track break time to subtract from work time
+  const [totalBreakTime, setTotalBreakTime] = useState(0);
+  
+  // Priority popup state
+  const [showPriorityPopup, setShowPriorityPopup] = useState<string | null>(null);
 
   // Column dragging handlers
   const handleColumnDragStart = (e: React.DragEvent, columnId: string) => {
@@ -576,17 +730,45 @@ export const Kanban = ({ projectId }: KanbanProps) => {
       {isFocusMode && (
         <div className="focus-header">
           <div className="focus-timer">
-            <span className="timer-display">{formatElapsedTime(elapsedTime)}</span>
+            <span className={cn("timer-display", isBreakMode && "break-timer")}>
+              {isBreakMode ? formatBreakTime(breakTime) : formatElapsedTime(elapsedTime)}
+            </span>
           </div>
+          <div className="focus-controls">
+            {isBreakMode && (
+              <button 
+                className="exit-break-button"
+                onClick={endBreak}
+                title="Exit break mode"
+              >
+                Exit Break
+              </button>
+            )}
+            <button 
+              className="stop-focus-button"
+              onClick={stopFocusMode}
+              title="Stop focus mode"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Empty doing list warning */}
+      {showEmptyDoingWarning && (
+        <div className="empty-doing-warning">
+          <p>You don't have anything in your 'Doing' list yet!</p>
           <button 
-            className="stop-focus-button"
-            onClick={stopFocusMode}
-            title="Stop focus mode"
+            className="close-warning-button"
+            onClick={() => setShowEmptyDoingWarning(false)}
+            title="Close warning"
           >
             ×
           </button>
         </div>
       )}
+      
       <div className={cn("kanban-columns", draggedColumn && "dragging", isFocusMode && "focus-columns")}>
         {/* Existing Columns */}
         {columns.map((column, index) => (
@@ -680,14 +862,65 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                           autoFocus
                         />
                       ) : (
-                        <p 
-                          className="task-title"
-                          onClick={!isFocusMode ? () => startEditingTask(task) : undefined}
-                          style={{ cursor: isFocusMode ? 'default' : 'pointer' }}
-                        >
-                          {task.title}
-                        </p>
+                        <div className="task-title-section">
+                          <p 
+                            className="task-title"
+                            onClick={!isFocusMode ? () => startEditingTask(task) : undefined}
+                            style={{ cursor: isFocusMode ? 'default' : 'pointer' }}
+                          >
+                            {task.title}
+                          </p>
+                          {!isFocusMode && (
+                            <button
+                              className="priority-button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowPriorityPopup(showPriorityPopup === task.id ? null : task.id);
+                              }}
+                              title="Set priority"
+                            >
+                              ⚡
+                            </button>
+                          )}
+                        </div>
                       )}
+                      
+                      {/* Task action buttons for active task in focus mode */}
+                      {isFocusMode && (column.id === 'doing' || column.title.toLowerCase() === 'doing') && taskIndex === 0 && (
+                        <div className="focus-task-actions">
+                          <button
+                            className="pause-task-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePause();
+                            }}
+                            title={isPaused ? "Resume" : "Pause"}
+                          >
+                            {isPaused ? "▶" : "⏸"}
+                          </button>
+                          <button
+                            className="break-task-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startBreak();
+                            }}
+                            title="Take a break"
+                          >
+                            ☕
+                          </button>
+                          <button
+                            className="complete-task-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              completeActiveTask();
+                            }}
+                            title="Complete task"
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      )}
+                      
                       {!isFocusMode && (
                         <div className="task-actions">
                           <button
@@ -723,6 +956,51 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                         </div>
                       )}
                     </div>
+
+                    {/* Priority display */}
+                    {task.priority && (
+                      <div className="task-priority">
+                        <span 
+                          className="priority-badge"
+                          style={{ backgroundColor: getPriorityColor(task.priority) }}
+                        >
+                          {getPriorityLabel(task.priority)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Priority popup */}
+                    {showPriorityPopup === task.id && (
+                      <div className="priority-popup">
+                        <button
+                          className="priority-option urgent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTaskPriority(task.id, 'urgent');
+                          }}
+                        >
+                          Urgent
+                        </button>
+                        <button
+                          className="priority-option upcoming"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTaskPriority(task.id, 'upcoming');
+                          }}
+                        >
+                          Upcoming
+                        </button>
+                        <button
+                          className="priority-option long-term"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTaskPriority(task.id, 'long-term');
+                          }}
+                        >
+                          Long-term
+                        </button>
+                      </div>
+                    )}
 
                     {/* Card options dropdown */}
                     {!isFocusMode && showCardOptions === task.id && (

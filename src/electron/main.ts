@@ -15,7 +15,8 @@ app.on("ready", ()=>{
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.cjs')
+            preload: path.join(__dirname, 'preload.cjs'),
+            devTools: false
         }
     });
     
@@ -25,18 +26,26 @@ app.on("ready", ()=>{
             // Resize to sidebar (300px wide, full height)
             mainWindow.setSize(300, screenHeight, true);
             mainWindow.setPosition(0, 0); // Position on left side
+            
+            // Make window always on top and visible on all workspaces (macOS)
+            mainWindow.setAlwaysOnTop(true);
+            mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
         } else {
             // Restore to full size
             mainWindow.setSize(screenWidth, screenHeight, true);
             mainWindow.setPosition(0, 0);
+            
+            // Remove always on top and workspace visibility
+            mainWindow.setAlwaysOnTop(false);
+            mainWindow.setVisibleOnAllWorkspaces(false);
         }
     });
     
     // In development, load from the Vite dev server
     if (process.env.NODE_ENV === 'development') {
         mainWindow.loadURL('http://localhost:5173');
-        // Open DevTools in development
-        mainWindow.webContents.openDevTools();
+        // DevTools disabled - uncomment the line below if you need them
+        // mainWindow.webContents.openDevTools();
     } else {
         // In production, load the built files
         mainWindow.loadFile(path.join(app.getAppPath(), '/dist-react/index.html'));
