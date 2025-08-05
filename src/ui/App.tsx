@@ -15,6 +15,11 @@ interface Task {
   note?: string;
   checklist?: { id: string; text: string; completed: boolean }[];
   scheduledDate?: string;
+  scheduledStartTime?: string; // HH:MM format
+  scheduledEndTime?: string; // HH:MM format
+  scheduledColor?: string; // hex color
+  projectId?: string; // Added for calendar view
+  projectTitle?: string; // Added for calendar view
 }
 
 interface Column {
@@ -43,6 +48,11 @@ function App() {
   const [newProjectTitle, setNewProjectTitle] = useState('')
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [editingProjectTitle, setEditingProjectTitle] = useState('')
+  
+  // Calendar view state
+  const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('week')
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [transitionDirection, setTransitionDirection] = useState<'left' | 'right' | null>(null)
 
   // Save projects to localStorage whenever projects change
   React.useEffect(() => {
@@ -101,6 +111,539 @@ function App() {
   const handleCancelProjectEdit = () => {
     setEditingProjectId(null)
     setEditingProjectTitle('')
+  }
+
+  // Calendar view functions
+  const handleTabChange = (newTab: 'project' | 'calendar') => {
+    if (newTab !== activeTab) {
+      const direction = newTab === 'calendar' ? 'left' : 'right'
+      setTransitionDirection(direction)
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setActiveTab(newTab)
+        setIsTransitioning(false)
+        setTransitionDirection(null)
+      }, 300)
+    }
+  }
+
+  const CalendarView = ({ currentProject }: { currentProject: string | null }) => {
+    // Calendar navigation state
+    const [currentViewDate, setCurrentViewDate] = useState(new Date());
+    // Get tasks from the current project or all projects
+    const getProjectTasks = (): Task[] => {
+      if (currentProject) {
+        // Get tasks from specific project
+        try {
+          const savedData = localStorage.getItem(`kanban-${currentProject}`);
+          if (savedData) {
+            const parsedData = JSON.parse(savedData);
+            return (parsedData.tasks || []) as Task[];
+          }
+        } catch (error) {
+          console.error('Error loading project tasks:', error);
+        }
+        return [];
+      } else {
+        // Get tasks from all projects
+        const allTasks: Task[] = [];
+        try {
+          projects.forEach(project => {
+            const savedData = localStorage.getItem(`kanban-${project.id}`);
+            if (savedData) {
+              const parsedData = JSON.parse(savedData);
+              const projectTasks = (parsedData.tasks || []) as Task[];
+              // Add project info to tasks for identification
+              const tasksWithProject = projectTasks.map(task => ({
+                ...task,
+                projectId: project.id,
+                projectTitle: project.title
+              }));
+              allTasks.push(...tasksWithProject);
+            }
+          });
+        } catch (error) {
+          console.error('Error loading all project tasks:', error);
+        }
+        return allTasks;
+      }
+    };
+
+    const tasks: Task[] = getProjectTasks();
+    
+    const calculateTaskDuration = (task: Task): number => {
+      if (!task.scheduledStartTime || !task.scheduledEndTime) return 1; // Default 1 hour
+      
+      const startTime = new Date(`2000-01-01T${task.scheduledStartTime}:00`);
+      const endTime = new Date(`2000-01-01T${task.scheduledEndTime}:00`);
+      
+      const diffMs = endTime.getTime() - startTime.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      
+      return Math.max(0.5, diffHours); // Minimum 30 minutes
+    };
+
+    const organizeOverlappingTasks = (tasks: Task[]): Task[][] => {
+      if (tasks.length <= 1) return [tasks];
+      
+      const sortedTasks = [...tasks].sort((a, b) => {
+        const aStart = a.scheduledStartTime || '00:00';
+        const bStart = b.scheduledStartTime || '00:00';
+        return aStart.localeCompare(bStart);
+      });
+      
+      const columns: Task[][] = [];
+      
+      sortedTasks.forEach(task => {
+        let placed = false;
+        
+        // Try to place in existing column
+        for (let i = 0; i < columns.length; i++) {
+          const column = columns[i];
+          const lastTask = column[column.length - 1];
+          
+          // Check if this task overlaps with the last task in this column
+          const canPlace = !lastTask || !isOverlapping(task, lastTask);
+          
+          if (canPlace) {
+            column.push(task);
+            placed = true;
+            break;
+          }
+        }
+        
+        // If couldn't place in existing column, create new column
+        if (!placed) {
+          columns.push([task]);
+        }
+      });
+      
+      return columns;
+    };
+
+    const isOverlapping = (task1: Task, task2: Task): boolean => {
+      if (!task1.scheduledStartTime || !task1.scheduledEndTime || 
+          !task2.scheduledStartTime || !task2.scheduledEndTime) {
+        return false;
+      }
+      
+      const start1 = new Date(`2000-01-01T${task1.scheduledStartTime}:00`);
+      const end1 = new Date(`2000-01-01T${task1.scheduledEndTime}:00`);
+      const start2 = new Date(`2000-01-01T${task2.scheduledStartTime}:00`);
+      const end2 = new Date(`2000-01-01T${task2.scheduledEndTime}:00`);
+      
+      // Check if tasks overlap (including 15-minute buffer)
+      const buffer = 15 * 60 * 1000; // 15 minutes in milliseconds
+      return (start1.getTime() - buffer) < end2.getTime() && 
+             (start2.getTime() - buffer) < end1.getTime();
+    };
+    
+    const getCurrentDate = () => {
+      return {
+        year: currentViewDate.getFullYear(),
+        month: currentViewDate.getMonth(),
+        day: currentViewDate.getDate(),
+        dayOfWeek: currentViewDate.getDay()
+      }
+    }
+
+    const navigateCalendar = (direction: 'prev' | 'next') => {
+      const newDate = new Date(currentViewDate);
+      
+      switch (calendarView) {
+        case 'day':
+          newDate.setDate(currentViewDate.getDate() + (direction === 'next' ? 1 : -1));
+          break;
+        case 'week':
+          newDate.setDate(currentViewDate.getDate() + (direction === 'next' ? 7 : -7));
+          break;
+        case 'month':
+          newDate.setMonth(currentViewDate.getMonth() + (direction === 'next' ? 1 : -1));
+          break;
+      }
+      
+      setCurrentViewDate(newDate);
+    }
+
+    const goToToday = () => {
+      setCurrentViewDate(new Date());
+    }
+
+    const getDaysInMonth = (year: number, month: number) => {
+      return new Date(year, month + 1, 0).getDate()
+    }
+
+    const getFirstDayOfMonth = (year: number, month: number) => {
+      return new Date(year, month, 1).getDay()
+    }
+
+    const getWeekDays = () => {
+      return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    }
+
+    const getMonthName = (month: number) => {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                     'July', 'August', 'September', 'October', 'November', 'December']
+      return months[month]
+    }
+
+    const currentDate = getCurrentDate()
+
+    const renderDayView = () => {
+      const currentDateString = `${currentDate.year}-${(currentDate.month + 1).toString().padStart(2, '0')}-${currentDate.day.toString().padStart(2, '0')}`;
+      const dayTasks = tasks.filter(task => task.scheduledDate === currentDateString);
+      const timedTasks = dayTasks.filter(task => task.scheduledStartTime);
+      const untimedTasks = dayTasks.filter(task => !task.scheduledStartTime);
+      
+      return (
+        <div className="calendar-day-view">
+                  <div className="calendar-header">
+          <h3>{getMonthName(currentDate.month)} {currentDate.day}, {currentDate.year}</h3>
+          <div className="calendar-controls">
+            <button 
+              className="calendar-nav-btn" 
+              onClick={() => navigateCalendar('prev')}
+            >
+              ‹
+            </button>
+            <button 
+              className="calendar-today-btn" 
+              onClick={goToToday}
+            >
+              Today
+            </button>
+            <button 
+              className="calendar-nav-btn" 
+              onClick={() => navigateCalendar('next')}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+          <div className="calendar-day-content">
+            {untimedTasks.length > 0 && (
+              <div className="untimed-tasks-section">
+                <h4 className="untimed-tasks-title">All Day Events</h4>
+                <div className="untimed-tasks-list">
+                  {untimedTasks.map(task => (
+                    <div 
+                      key={task.id} 
+                      className="scheduled-task untimed-task"
+                      style={{ 
+                        backgroundColor: task.scheduledColor || '#6b7280',
+                        borderLeft: `4px solid ${task.scheduledColor || '#6b7280'}`
+                      }}
+                    >
+                      <div className="scheduled-task-title">{task.title}</div>
+                      {task.projectTitle && !currentProject && (
+                        <div className="scheduled-task-project">{task.projectTitle}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="time-slots">
+              {Array.from({ length: 24 }, (_, i) => {
+                const hourTasks = timedTasks.filter(task => {
+                  const startHour = parseInt(task.scheduledStartTime!.split(':')[0]);
+                  return startHour === i;
+                });
+                
+                return (
+                  <div key={i} className="time-slot">
+                    <span className="time-label">{i.toString().padStart(2, '0')}:00</span>
+                    <div className="time-content">
+                      {(() => {
+                        const organizedTasks = organizeOverlappingTasks(hourTasks);
+                        return (
+                          <div className="task-columns" style={{ display: 'flex', gap: '4px' }}>
+                            {organizedTasks.map((column, columnIndex) => (
+                              <div key={columnIndex} className="task-column" style={{ flex: 1 }}>
+                                {column.map(task => {
+                                  const duration = calculateTaskDuration(task);
+                                  return (
+                                    <div 
+                                      key={task.id} 
+                                      className="scheduled-task"
+                                      style={{ 
+                                        backgroundColor: task.scheduledColor || '#3b82f6',
+                                        borderLeft: `4px solid ${task.scheduledColor || '#3b82f6'}`,
+                                        height: `${Math.max(40, duration * 60)}px`,
+                                        minHeight: '40px',
+                                        marginBottom: '2px'
+                                      }}
+                                    >
+                                      <div className="scheduled-task-title">{task.title}</div>
+                                      {duration >= 1 && task.projectTitle && !currentProject && (
+                                        <div className="scheduled-task-project">{task.projectTitle}</div>
+                                      )}
+                                      {duration >= 1 && task.scheduledStartTime && task.scheduledEndTime && (
+                                        <div className="scheduled-task-time">
+                                          {task.scheduledStartTime} - {task.scheduledEndTime}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const renderWeekView = () => {
+      const weekDays = getWeekDays()
+      const startOfWeek = new Date(currentViewDate)
+      startOfWeek.setDate(currentViewDate.getDate() - currentViewDate.getDay())
+
+      return (
+        <div className="calendar-week-view">
+                  <div className="calendar-header">
+          <h3>Week of {getMonthName(startOfWeek.getMonth())} {startOfWeek.getDate()}</h3>
+          <div className="calendar-controls">
+            <button 
+              className="calendar-nav-btn" 
+              onClick={() => navigateCalendar('prev')}
+            >
+              ‹
+            </button>
+            <button 
+              className="calendar-today-btn" 
+              onClick={goToToday}
+            >
+              Today
+            </button>
+            <button 
+              className="calendar-nav-btn" 
+              onClick={() => navigateCalendar('next')}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+          <div className="calendar-week-content">
+            <div className="week-header">
+              <div className="time-column-header"></div>
+              {weekDays.map((day, index) => {
+                const date = new Date(startOfWeek)
+                date.setDate(startOfWeek.getDate() + index)
+                const isToday = date.toDateString() === new Date().toDateString()
+                const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
+                const dayTasks = tasks.filter(task => task.scheduledDate === dateString)
+                const untimedTasks = dayTasks.filter(task => !task.scheduledStartTime)
+                
+                return (
+                  <div key={day} className={`week-day-header ${isToday ? 'today' : ''}`}>
+                    <span className="day-name">{day}</span>
+                    <span className="day-date">{date.getDate()}</span>
+                    {untimedTasks.length > 0 && (
+                      <div className="week-day-untimed-tasks">
+                        {untimedTasks.map(task => (
+                          <div 
+                            key={task.id} 
+                            className="scheduled-task untimed-task"
+                            style={{ 
+                              backgroundColor: task.scheduledColor || '#6b7280',
+                              borderLeft: `4px solid ${task.scheduledColor || '#6b7280'}`
+                            }}
+                          >
+                            <div className="scheduled-task-title">{task.title}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="week-grid">
+              <div className="time-column">
+                {Array.from({ length: 24 }, (_, i) => (
+                  <div key={i} className="time-slot">
+                    <span className="time-label">{i.toString().padStart(2, '0')}:00</span>
+                  </div>
+                ))}
+              </div>
+              {weekDays.map((day, dayIndex) => {
+                const date = new Date(startOfWeek)
+                date.setDate(startOfWeek.getDate() + dayIndex)
+                const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
+                const dayTasks = tasks.filter(task => task.scheduledDate === dateString)
+                const timedTasks = dayTasks.filter(task => task.scheduledStartTime)
+                
+                return (
+                  <div key={day} className="week-day-column">
+                    {Array.from({ length: 24 }, (_, i) => {
+                      const hourTasks = timedTasks.filter(task => {
+                        const startHour = parseInt(task.scheduledStartTime!.split(':')[0]);
+                        return startHour === i;
+                      });
+                      
+                                              return (
+                          <div key={i} className="week-time-slot">
+                            {(() => {
+                              const organizedTasks = organizeOverlappingTasks(hourTasks);
+                              return (
+                                <div className="task-columns" style={{ display: 'flex', gap: '2px' }}>
+                                  {organizedTasks.map((column, columnIndex) => (
+                                    <div key={columnIndex} className="task-column" style={{ flex: 1 }}>
+                                      {column.map(task => {
+                                        const duration = calculateTaskDuration(task);
+                                        return (
+                                          <div 
+                                            key={task.id} 
+                                            className="scheduled-task"
+                                            style={{ 
+                                              backgroundColor: task.scheduledColor || '#3b82f6',
+                                              borderLeft: `4px solid ${task.scheduledColor || '#3b82f6'}`,
+                                              height: `${Math.max(40, duration * 60)}px`,
+                                              minHeight: '40px',
+                                              marginBottom: '1px'
+                                            }}
+                                          >
+                                            <div className="scheduled-task-title">{task.title}</div>
+                                            {duration >= 1 && task.projectTitle && !currentProject && (
+                                              <div className="scheduled-task-project">{task.projectTitle}</div>
+                                            )}
+                                            {duration >= 1 && task.scheduledStartTime && task.scheduledEndTime && (
+                                              <div className="scheduled-task-time">
+                                                {task.scheduledStartTime} - {task.scheduledEndTime}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        );
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    const renderMonthView = () => {
+      const daysInMonth = getDaysInMonth(currentDate.year, currentDate.month)
+      const firstDayOfMonth = getFirstDayOfMonth(currentDate.year, currentDate.month)
+      const weekDays = getWeekDays()
+
+      return (
+        <div className="calendar-month-view">
+                  <div className="calendar-header">
+          <h3>{getMonthName(currentDate.month)} {currentDate.year}</h3>
+          <div className="calendar-controls">
+            <button 
+              className="calendar-nav-btn" 
+              onClick={() => navigateCalendar('prev')}
+            >
+              ‹
+            </button>
+            <button 
+              className="calendar-today-btn" 
+              onClick={goToToday}
+            >
+              Today
+            </button>
+            <button 
+              className="calendar-nav-btn" 
+              onClick={() => navigateCalendar('next')}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+          <div className="calendar-month-content">
+            <div className="month-header">
+              {weekDays.map(day => (
+                <div key={day} className="month-day-header">{day}</div>
+              ))}
+            </div>
+            <div className="month-grid">
+              {Array.from({ length: firstDayOfMonth }, (_, i) => (
+                <div key={`empty-${i}`} className="month-day empty"></div>
+              ))}
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const day = i + 1
+                const isToday = day === currentDate.day
+                const dateString = `${currentDate.year}-${(currentDate.month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+                const dayTasks = tasks.filter(task => task.scheduledDate === dateString)
+                
+                return (
+                  <div key={day} className={`month-day ${isToday ? 'today' : ''}`}>
+                    <span className="day-number">{day}</span>
+                    <div className="month-day-tasks">
+                      {dayTasks.map(task => {
+                        const duration = calculateTaskDuration(task);
+                        return (
+                          <div 
+                            key={task.id} 
+                            className="scheduled-task"
+                            style={{ 
+                              backgroundColor: task.scheduledColor || '#3b82f6',
+                              borderLeft: `4px solid ${task.scheduledColor || '#3b82f6'}`
+                            }}
+                          >
+                            <div className="scheduled-task-title">{task.title}</div>
+                            {duration >= 2 && task.projectTitle && !currentProject && (
+                              <div className="scheduled-task-project">{task.projectTitle}</div>
+                            )}
+                            {duration >= 2 && task.scheduledStartTime && (
+                              <div className="scheduled-task-time">
+                                {task.scheduledStartTime}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="calendar-container">
+        <div className="calendar-view-selector">
+          <select 
+            value={calendarView} 
+            onChange={(e) => setCalendarView(e.target.value as 'day' | 'week' | 'month')}
+            className="calendar-view-dropdown"
+          >
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+          </select>
+        </div>
+        
+        <div className="calendar-content">
+          {calendarView === 'day' && renderDayView()}
+          {calendarView === 'week' && renderWeekView()}
+          {calendarView === 'month' && renderMonthView()}
+        </div>
+      </div>
+    )
   }
 
   // Helper function to get kanban data for a project
@@ -215,116 +758,121 @@ function App() {
       {/* Header with centered toggle switcher */}
       <header className="header">
         <div className="toggle-container">
-          <div className="toggle-switch">
+          <div className="ios-toggle-switch">
+            <div className="toggle-track">
+              <div className={`toggle-slider ${activeTab === 'calendar' ? 'active' : ''}`}></div>
+            </div>
+            <div className="toggle-labels">
+              <span className={`toggle-label ${activeTab === 'project' ? 'active' : ''}`}>Project</span>
+              <span className={`toggle-label ${activeTab === 'calendar' ? 'active' : ''}`}>Calendar</span>
+            </div>
             <button 
-              className={`toggle-option ${activeTab === 'project' ? 'active' : ''}`}
-              onClick={() => setActiveTab('project')}
+              className="toggle-button"
+              onClick={() => handleTabChange(activeTab === 'project' ? 'calendar' : 'project')}
+              aria-label={`Switch to ${activeTab === 'project' ? 'calendar' : 'project'} view`}
             >
-              Project View
-            </button>
-            <button 
-              className={`toggle-option ${activeTab === 'calendar' ? 'active' : ''}`}
-              onClick={() => setActiveTab('calendar')}
-            >
-              Calendar View
+              <span className="sr-only">Toggle view</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main content area */}
+            {/* Main content area */}
       <main className="main-content">
-        {activeTab === 'project' && (
-          <div className="project-view">
-            <div className="add-project-section">
-              {showAddProject ? (
-                <div className="add-project-form">
-                  <input
-                    type="text"
-                    value={newProjectTitle}
-                    onChange={(e) => setNewProjectTitle(e.target.value)}
-                    placeholder="Enter project title..."
-                    className="project-input"
-                    autoFocus
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
-                  />
-                  <div className="form-buttons">
-                    <button 
-                      onClick={handleAddProject}
-                      className="save-button"
-                    >
-                      Save
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setShowAddProject(false)
-                        setNewProjectTitle('')
-                      }}
-                      className="cancel-button"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button 
-                  className="add-project-button"
-                  onClick={() => setShowAddProject(true)}
-                >
-                  <div className="plus-icon">+</div>
-                  <span>Add Project</span>
-                </button>
-              )}
-            </div>
-            <div className="projects-container">
-              {projects.map(project => (
-                <div 
-                  key={project.id}
-                  className="project-card"
-                  onClick={() => handleProjectClick(project.id)}
-                >
-                  <div className="project-card-header">
-                    {editingProjectId === project.id ? (
-                      <input
-                        type="text"
-                        value={editingProjectTitle}
-                        onChange={(e) => setEditingProjectTitle(e.target.value)}
-                        className="edit-card-title-input"
-                        autoFocus
-                        onKeyPress={(e) => e.key === 'Enter' && handleSaveProjectEdit()}
-                        onBlur={handleSaveProjectEdit}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <h3 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEditProject(project.id, project.title)
-                        }}
-                        className="clickable-project-title"
+        <div className="view-container">
+          {/* Project View */}
+          <div className={`project-view-container ${activeTab === 'project' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-out-left' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-in-left' : ''} ${activeTab === 'calendar' ? 'hidden' : ''}`}>
+            <div className="project-view">
+              <div className="add-project-section">
+                {showAddProject ? (
+                  <div className="add-project-form">
+                    <input
+                      type="text"
+                      value={newProjectTitle}
+                      onChange={(e) => setNewProjectTitle(e.target.value)}
+                      placeholder="Enter project title..."
+                      className="project-input"
+                      autoFocus
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
+                    />
+                    <div className="form-buttons">
+                      <button 
+                        onClick={handleAddProject}
+                        className="save-button"
                       >
-                        {project.title}
-                      </h3>
-                    )}
+                        Save
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setShowAddProject(false)
+                          setNewProjectTitle('')
+                        }}
+                        className="cancel-button"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                  
-                  <div className="project-card-divider"></div>
-                  
-                  <div className="project-card-content">
-                    <MiniKanbanView projectId={project.id} />
+                ) : (
+                  <button 
+                    className="add-project-button"
+                    onClick={() => setShowAddProject(true)}
+                  >
+                    <div className="plus-icon">+</div>
+                    <span>Add Project</span>
+                  </button>
+                )}
+              </div>
+              <div className="projects-container">
+                {projects.map(project => (
+                  <div 
+                    key={project.id}
+                    className="project-card"
+                    onClick={() => handleProjectClick(project.id)}
+                  >
+                    <div className="project-card-header">
+                      {editingProjectId === project.id ? (
+                        <input
+                          type="text"
+                          value={editingProjectTitle}
+                          onChange={(e) => setEditingProjectTitle(e.target.value)}
+                          className="edit-card-title-input"
+                          autoFocus
+                          onKeyPress={(e) => e.key === 'Enter' && handleSaveProjectEdit()}
+                          onBlur={handleSaveProjectEdit}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <h3 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditProject(project.id, project.title)
+                          }}
+                          className="clickable-project-title"
+                        >
+                          {project.title}
+                        </h3>
+                      )}
+                    </div>
+                    
+                    <div className="project-card-divider"></div>
+                    
+                    <div className="project-card-content">
+                      <MiniKanbanView projectId={project.id} />
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        )}
-        
-        {activeTab === 'calendar' && (
-          <div className="calendar-view">
-            <h2>Calendar View</h2>
-            <p>Calendar functionality coming soon...</p>
+
+          {/* Calendar View */}
+          <div className={`calendar-view-container ${activeTab === 'calendar' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
+            <div className="calendar-view">
+              <CalendarView currentProject={selectedProject} />
+            </div>
           </div>
-        )}
+        </div>
       </main>
     </div>
   )

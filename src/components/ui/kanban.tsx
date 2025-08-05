@@ -20,6 +20,9 @@ interface Task {
   note?: string;
   checklist?: { id: string; text: string; completed: boolean }[];
   scheduledDate?: string;
+  scheduledStartTime?: string; // HH:MM format
+  scheduledEndTime?: string; // HH:MM format
+  scheduledColor?: string; // hex color
   estimatedTime?: string; // HH:MM format
   actualTime?: string; // HH:MM format
   priority?: 'urgent' | 'upcoming' | 'long-term';
@@ -306,18 +309,32 @@ export const Kanban = ({ projectId }: KanbanProps) => {
 
   // Schedule functions
   const openScheduleModal = (task: Task) => {
+    setScheduleForm({
+      date: task.scheduledDate || '',
+      startTime: task.scheduledStartTime || '',
+      endTime: task.scheduledEndTime || '',
+      color: task.scheduledColor || '#3b82f6'
+    });
     setShowScheduleModal(task.id);
-    setTempScheduledDate(task.scheduledDate || '');
   };
 
   const saveSchedule = (taskId: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, scheduledDate: tempScheduledDate || undefined }
+    const updatedTasks = tasks.map(task =>
+      task.id === taskId
+        ? {
+            ...task,
+            scheduledDate: scheduleForm.date,
+            scheduledStartTime: scheduleForm.startTime,
+            scheduledEndTime: scheduleForm.endTime,
+            scheduledColor: scheduleForm.color
+          }
         : task
-    ));
+    );
+    
+
+    
+    setTasks(updatedTasks);
     setShowScheduleModal(null);
-    setTempScheduledDate('');
   };
 
   // Card options menu
@@ -533,6 +550,8 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     }
   };
 
+
+
   const formatElapsedTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -621,6 +640,14 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   
   // Priority popup state
   const [showPriorityPopup, setShowPriorityPopup] = useState<string | null>(null);
+  
+  // Schedule form state
+  const [scheduleForm, setScheduleForm] = useState({
+    date: '',
+    startTime: '',
+    endTime: '',
+    color: '#3b82f6' // default blue
+  });
 
   // Column dragging handlers
   const handleColumnDragStart = (e: React.DragEvent, columnId: string) => {
@@ -871,16 +898,18 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                             {task.title}
                           </p>
                           {!isFocusMode && (
-                            <button
-                              className="priority-button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowPriorityPopup(showPriorityPopup === task.id ? null : task.id);
-                              }}
-                              title="Set priority"
-                            >
-                              ⚡
-                            </button>
+                                                      <button
+                            className="priority-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowPriorityPopup(showPriorityPopup === task.id ? null : task.id);
+                            }}
+                            title="Set priority"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                            </svg>
+                          </button>
                           )}
                         </div>
                       )}
@@ -906,7 +935,9 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                             }}
                             title="Take a break"
                           >
-                            ☕
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V6h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S14.67 9 15.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                            </svg>
                           </button>
                           <button
                             className="complete-task-button"
@@ -1296,14 +1327,61 @@ export const Kanban = ({ projectId }: KanbanProps) => {
               
               {showScheduleModal && (
                 <div className="modal-overlay" onClick={() => setShowScheduleModal(null)}>
-                  <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-content schedule-modal" onClick={(e) => e.stopPropagation()}>
                     <h3>Schedule Task</h3>
-                    <input
-                      type="date"
-                      value={tempScheduledDate}
-                      onChange={(e) => setTempScheduledDate(e.target.value)}
-                      className="schedule-date-input"
-                    />
+                    
+                    <div className="schedule-form">
+                      <div className="form-group">
+                        <label>Date</label>
+                        <input
+                          type="date"
+                          value={scheduleForm.date}
+                          onChange={(e) => setScheduleForm({...scheduleForm, date: e.target.value})}
+                          className="schedule-input"
+                        />
+                      </div>
+                      
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Start Time</label>
+                          <input
+                            type="time"
+                            value={scheduleForm.startTime}
+                            onChange={(e) => setScheduleForm({...scheduleForm, startTime: e.target.value})}
+                            className="schedule-input"
+                          />
+                        </div>
+                        
+                        <div className="form-group">
+                          <label>End Time</label>
+                          <input
+                            type="time"
+                            value={scheduleForm.endTime}
+                            onChange={(e) => setScheduleForm({...scheduleForm, endTime: e.target.value})}
+                            className="schedule-input"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>Color</label>
+                        <select
+                          value={scheduleForm.color}
+                          onChange={(e) => setScheduleForm({...scheduleForm, color: e.target.value})}
+                          className="schedule-input"
+                        >
+                          <option value="#3b82f6">Blue</option>
+                          <option value="#ef4444">Red</option>
+                          <option value="#10b981">Green</option>
+                          <option value="#f59e0b">Orange</option>
+                          <option value="#8b5cf6">Purple</option>
+                          <option value="#ec4899">Pink</option>
+                          <option value="#06b6d4">Cyan</option>
+                          <option value="#84cc16">Lime</option>
+                        </select>
+                      </div>
+                    </div>
+                    
                     <div className="modal-actions">
                       <button onClick={() => setShowScheduleModal(null)}>Cancel</button>
                       <button onClick={() => saveSchedule(showScheduleModal)}>Save</button>
