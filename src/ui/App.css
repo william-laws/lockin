@@ -37,6 +37,16 @@ body {
   -webkit-app-region: drag;
 }
 
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
 .toggle-container {
   display: flex;
   justify-content: center;
@@ -121,6 +131,31 @@ body {
 
 .toggle-button:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* Analytics Button */
+.analytics-button {
+  background-color: #007AFF;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
+  position: absolute;
+  right: 0;
+}
+
+.analytics-button:hover {
+  background-color: #0056CC;
+  transform: translateY(-1px);
+}
+
+.analytics-button:active {
+  transform: translateY(0);
 }
 
 .sr-only {
@@ -529,6 +564,85 @@ body {
 
 .calendar-view-container.hidden {
   transform: translateX(100%);
+}
+
+/* Analytics View Styles */
+.analytics-view-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease;
+  transform: translateX(100%);
+}
+
+.analytics-view-container.active {
+  transform: translateX(0);
+}
+
+.analytics-view-container.hidden {
+  transform: translateX(100%);
+}
+
+.analytics-container {
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  background-color: #000000;
+}
+
+.analytics-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.analytics-header h2 {
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.analytics-header p {
+  color: #888888;
+  font-size: 16px;
+}
+
+.analytics-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.analytics-section {
+  background-color: #111111;
+  border: 1px solid #333333;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.analytics-section h3 {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.analytics-placeholder {
+  background-color: #222222;
+  border: 2px dashed #444444;
+  border-radius: 8px;
+  padding: 40px;
+  text-align: center;
+  color: #888888;
+  font-size: 14px;
+}
+
+.analytics-placeholder p {
+  margin: 0;
 }
 
 /* Project -> Calendar transitions */

@@ -41,7 +41,7 @@ function App() {
     return [];
   };
 
-  const [activeTab, setActiveTab] = useState<'project' | 'calendar'>('project')
+  const [activeTab, setActiveTab] = useState<'project' | 'calendar' | 'analytics'>('project')
   const [projects, setProjects] = useState<Project[]>(getInitialProjects);
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [showAddProject, setShowAddProject] = useState(false)
@@ -114,9 +114,9 @@ function App() {
   }
 
   // Calendar view functions
-  const handleTabChange = (newTab: 'project' | 'calendar') => {
+  const handleTabChange = (newTab: 'project' | 'calendar' | 'analytics') => {
     if (newTab !== activeTab) {
-      const direction = newTab === 'calendar' ? 'left' : 'right'
+      const direction = newTab === 'calendar' ? 'left' : newTab === 'analytics' ? 'left' : 'right'
       setTransitionDirection(direction)
       setIsTransitioning(true)
       setTimeout(() => {
@@ -646,6 +646,41 @@ function App() {
     )
   }
 
+  // Analytics View Component
+  const AnalyticsView = () => {
+    return (
+      <div className="analytics-container">
+        <div className="analytics-header">
+          <h2>Analytics</h2>
+          <p>Track your productivity and time management</p>
+        </div>
+        
+        <div className="analytics-content">
+          <div className="analytics-section">
+            <h3>Project Time Distribution</h3>
+            <div className="analytics-placeholder">
+              <p>Pie chart showing time spent on each project will appear here</p>
+            </div>
+          </div>
+          
+          <div className="analytics-section">
+            <h3>Time Estimation Accuracy</h3>
+            <div className="analytics-placeholder">
+              <p>Chart comparing estimated vs actual time will appear here</p>
+            </div>
+          </div>
+          
+          <div className="analytics-section">
+            <h3>Productivity Insights</h3>
+            <div className="analytics-placeholder">
+              <p>Additional analytics and insights will appear here</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Helper function to get kanban data for a project
   const getProjectKanbanData = (projectId: string) => {
     try {
@@ -755,25 +790,34 @@ function App() {
 
   return (
     <div className="app">
-      {/* Header with centered toggle switcher */}
+      {/* Header with centered toggle switcher and analytics button */}
       <header className="header">
-        <div className="toggle-container">
-          <div className="ios-toggle-switch">
-            <div className="toggle-track">
-              <div className={`toggle-slider ${activeTab === 'calendar' ? 'active' : ''}`}></div>
+        <div className="header-content">
+          <div className="toggle-container">
+            <div className="ios-toggle-switch">
+              <div className="toggle-track">
+                <div className={`toggle-slider ${activeTab === 'calendar' ? 'active' : ''}`}></div>
+              </div>
+              <div className="toggle-labels">
+                <span className={`toggle-label ${activeTab === 'project' ? 'active' : ''}`}>Project</span>
+                <span className={`toggle-label ${activeTab === 'calendar' ? 'active' : ''}`}>Calendar</span>
+              </div>
+              <button 
+                className="toggle-button"
+                onClick={() => handleTabChange(activeTab === 'project' ? 'calendar' : 'project')}
+                aria-label={`Switch to ${activeTab === 'project' ? 'calendar' : 'project'} view`}
+              >
+                <span className="sr-only">Toggle view</span>
+              </button>
             </div>
-            <div className="toggle-labels">
-              <span className={`toggle-label ${activeTab === 'project' ? 'active' : ''}`}>Project</span>
-              <span className={`toggle-label ${activeTab === 'calendar' ? 'active' : ''}`}>Calendar</span>
-            </div>
-            <button 
-              className="toggle-button"
-              onClick={() => handleTabChange(activeTab === 'project' ? 'calendar' : 'project')}
-              aria-label={`Switch to ${activeTab === 'project' ? 'calendar' : 'project'} view`}
-            >
-              <span className="sr-only">Toggle view</span>
-            </button>
           </div>
+          <button 
+            className="analytics-button"
+            onClick={() => handleTabChange('analytics')}
+            title="Analytics"
+          >
+            Analytics
+          </button>
         </div>
       </header>
 
@@ -870,6 +914,13 @@ function App() {
           <div className={`calendar-view-container ${activeTab === 'calendar' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
             <div className="calendar-view">
               <CalendarView currentProject={selectedProject} />
+            </div>
+          </div>
+
+          {/* Analytics View */}
+          <div className={`analytics-view-container ${activeTab === 'analytics' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
+            <div className="analytics-view">
+              <AnalyticsView />
             </div>
           </div>
         </div>
