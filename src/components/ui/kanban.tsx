@@ -9,6 +9,7 @@ declare global {
   interface Window {
     electronAPI?: {
       setFocusMode: (isFocusMode: boolean) => Promise<void>;
+      onWindowFocusChanged: (callback: (isFocused: boolean) => void) => void;
     };
   }
 }
@@ -110,6 +111,9 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [showEmptyDoingWarning, setShowEmptyDoingWarning] = useState(false);
   
+  // Window focus state
+  const [isWindowFocused, setIsWindowFocused] = useState(true);
+  
   // Pause and break state
   const [isPaused, setIsPaused] = useState(false);
   const [isBreakMode, setIsBreakMode] = useState(false);
@@ -147,6 +151,19 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     setColumns(newColumns);
     console.log('Loaded for project:', projectId, 'Tasks:', newTasks.length, 'Columns:', newColumns.length);
   }, [projectId]);
+
+  // Listen for window focus changes
+  React.useEffect(() => {
+    if (window.electronAPI?.onWindowFocusChanged) {
+      console.log('Setting up window focus listener');
+      window.electronAPI.onWindowFocusChanged((isFocused: boolean) => {
+        console.log('Window focus changed:', isFocused);
+        setIsWindowFocused(isFocused);
+      });
+    } else {
+      console.log('electronAPI.onWindowFocusChanged not available');
+    }
+  }, []);
 
   const addColumn = () => {
     if (newColumnTitle.trim()) {
@@ -752,8 +769,11 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     setDropPosition(null);
   };
 
+  // Debug log for focus state
+  console.log('Focus state:', { isFocusMode, isWindowFocused, shouldBeUnfocused: isFocusMode && !isWindowFocused });
+
   return (
-    <div className={cn("kanban-board", isFocusMode && "focus-mode")}>
+    <div className={cn("kanban-board", isFocusMode && "focus-mode", isFocusMode && !isWindowFocused && "unfocused")}>
       {isFocusMode && (
         <div className="focus-header">
           <div className="focus-timer">
@@ -817,13 +837,15 @@ export const Kanban = ({ projectId }: KanbanProps) => {
             <div className="column-header">
               <h3 className="column-title">{column.title}</h3>
               <div className="column-actions">
-                <button 
-                  className="add-task-button"
-                  onClick={() => setShowAddTask(column.id)}
-                  title="Add task"
-                >
-                  <FiPlus />
-                </button>
+                {!isFocusMode || (column.id !== 'doing' && column.title.toLowerCase() !== 'doing') && (
+                  <button 
+                    className="add-task-button"
+                    onClick={() => setShowAddTask(column.id)}
+                    title="Add task"
+                  >
+                    <FiPlus />
+                  </button>
+                )}
                 {column.id !== 'doing' && column.title.toLowerCase() !== 'doing' && (
                   <button 
                     className="delete-column-button"

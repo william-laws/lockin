@@ -20,6 +20,22 @@ app.on("ready", ()=>{
         }
     });
     
+    // Track window focus state
+    let isWindowFocused = true;
+    
+    // Handle window focus events
+    mainWindow.on('focus', () => {
+        console.log('Window focused');
+        isWindowFocused = true;
+        mainWindow.webContents.send('window-focus-changed', true);
+    });
+    
+    mainWindow.on('blur', () => {
+        console.log('Window blurred');
+        isWindowFocused = false;
+        mainWindow.webContents.send('window-focus-changed', false);
+    });
+    
     // Handle focus mode window resizing
     ipcMain.handle('set-focus-mode', async (event, isFocusMode: boolean) => {
         if (isFocusMode) {
@@ -50,4 +66,4 @@ app.on("ready", ()=>{
         // In production, load the built files
         mainWindow.loadFile(path.join(app.getAppPath(), '/dist-react/index.html'));
     }
-});
+})
