@@ -53,6 +53,7 @@ function App() {
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('week')
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionDirection, setTransitionDirection] = useState<'left' | 'right' | null>(null)
+  const [showAnalyticsView, setShowAnalyticsView] = useState(false)
 
   // Save projects to localStorage whenever projects change
   React.useEffect(() => {
@@ -650,11 +651,6 @@ function App() {
   const AnalyticsView = () => {
     return (
       <div className="analytics-container">
-        <div className="analytics-header">
-          <h2>Analytics</h2>
-          <p>Track your productivity and time management</p>
-        </div>
-        
         <div className="analytics-content">
           <div className="analytics-section">
             <h3>Project Time Distribution</h3>
@@ -790,141 +786,154 @@ function App() {
 
   return (
     <div className="app">
-      {/* Header with centered toggle switcher and analytics button */}
-      <header className="header">
-        <div className="header-content">
-          <div className="toggle-container">
-            <div className="ios-toggle-switch">
-              <div className="toggle-track">
-                <div className={`toggle-slider ${activeTab === 'calendar' ? 'active' : ''}`}></div>
-              </div>
-              <div className="toggle-labels">
-                <span className={`toggle-label ${activeTab === 'project' ? 'active' : ''}`}>Project</span>
-                <span className={`toggle-label ${activeTab === 'calendar' ? 'active' : ''}`}>Calendar</span>
+      {/* Analytics View */}
+      {showAnalyticsView ? (
+        <div className="analytics-full-view">
+          <header className="analytics-header">
+            <button 
+              onClick={() => setShowAnalyticsView(false)}
+              className="back-button"
+            >
+              ← Back
+            </button>
+            <h1 className="analytics-title">Analytics</h1>
+          </header>
+          <main className="main-content">
+            <AnalyticsView />
+          </main>
+        </div>
+      ) : (
+        <>
+          {/* Header with centered toggle switcher and analytics button */}
+          <header className="header">
+            <div className="header-content">
+              <div className="toggle-container">
+                <div className="ios-toggle-switch">
+                  <div className="toggle-track">
+                    <div className={`toggle-slider ${activeTab === 'calendar' ? 'active' : ''}`}></div>
+                  </div>
+                  <div className="toggle-labels">
+                    <span className={`toggle-label ${activeTab === 'project' ? 'active' : ''}`}>Project</span>
+                    <span className={`toggle-label ${activeTab === 'calendar' ? 'active' : ''}`}>Calendar</span>
+                  </div>
+                  <button 
+                    className="toggle-button"
+                    onClick={() => handleTabChange(activeTab === 'project' ? 'calendar' : 'project')}
+                    aria-label={`Switch to ${activeTab === 'project' ? 'calendar' : 'project'} view`}
+                  >
+                    <span className="sr-only">Toggle view</span>
+                  </button>
+                </div>
               </div>
               <button 
-                className="toggle-button"
-                onClick={() => handleTabChange(activeTab === 'project' ? 'calendar' : 'project')}
-                aria-label={`Switch to ${activeTab === 'project' ? 'calendar' : 'project'} view`}
+                className="analytics-button"
+                onClick={() => setShowAnalyticsView(true)}
+                title="Analytics"
               >
-                <span className="sr-only">Toggle view</span>
+                Analytics
               </button>
             </div>
-          </div>
-          <button 
-            className="analytics-button"
-            onClick={() => handleTabChange('analytics')}
-            title="Analytics"
-          >
-            Analytics
-          </button>
-        </div>
-      </header>
+          </header>
 
-            {/* Main content area */}
-      <main className="main-content">
-        <div className="view-container">
-          {/* Project View */}
-          <div className={`project-view-container ${activeTab === 'project' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-out-left' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-in-left' : ''} ${activeTab === 'calendar' ? 'hidden' : ''}`}>
-            <div className="project-view">
-              <div className="add-project-section">
-                {showAddProject ? (
-                  <div className="add-project-form">
-                    <input
-                      type="text"
-                      value={newProjectTitle}
-                      onChange={(e) => setNewProjectTitle(e.target.value)}
-                      placeholder="Enter project title..."
-                      className="project-input"
-                      autoFocus
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
-                    />
-                    <div className="form-buttons">
-                      <button 
-                        onClick={handleAddProject}
-                        className="save-button"
-                      >
-                        Save
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setShowAddProject(false)
-                          setNewProjectTitle('')
-                        }}
-                        className="cancel-button"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button 
-                    className="add-project-button"
-                    onClick={() => setShowAddProject(true)}
-                  >
-                    <div className="plus-icon">+</div>
-                    <span>Add Project</span>
-                  </button>
-                )}
-              </div>
-              <div className="projects-container">
-                {projects.map(project => (
-                  <div 
-                    key={project.id}
-                    className="project-card"
-                    onClick={() => handleProjectClick(project.id)}
-                  >
-                    <div className="project-card-header">
-                      {editingProjectId === project.id ? (
+          {/* Main content area */}
+          <main className="main-content">
+            <div className="view-container">
+              {/* Project View */}
+              <div className={`project-view-container ${activeTab === 'project' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-out-left' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-in-left' : ''} ${activeTab === 'calendar' ? 'hidden' : ''}`}>
+                <div className="project-view">
+                  <div className="add-project-section">
+                    {showAddProject ? (
+                      <div className="add-project-form">
                         <input
                           type="text"
-                          value={editingProjectTitle}
-                          onChange={(e) => setEditingProjectTitle(e.target.value)}
-                          className="edit-card-title-input"
+                          value={newProjectTitle}
+                          onChange={(e) => setNewProjectTitle(e.target.value)}
+                          placeholder="Enter project title..."
+                          className="project-input"
                           autoFocus
-                          onKeyPress={(e) => e.key === 'Enter' && handleSaveProjectEdit()}
-                          onBlur={handleSaveProjectEdit}
-                          onClick={(e) => e.stopPropagation()}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
                         />
-                      ) : (
-                        <h3 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleEditProject(project.id, project.title)
-                          }}
-                          className="clickable-project-title"
-                        >
-                          {project.title}
-                        </h3>
-                      )}
-                    </div>
-                    
-                    <div className="project-card-divider"></div>
-                    
-                    <div className="project-card-content">
-                      <MiniKanbanView projectId={project.id} />
-                    </div>
+                        <div className="form-buttons">
+                          <button 
+                            onClick={handleAddProject}
+                            className="save-button"
+                          >
+                            Save
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setShowAddProject(false)
+                              setNewProjectTitle('')
+                            }}
+                            className="cancel-button"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button 
+                        className="add-project-button"
+                        onClick={() => setShowAddProject(true)}
+                      >
+                        <div className="plus-icon">+</div>
+                        <span>Add Project</span>
+                      </button>
+                    )}
                   </div>
-                ))}
+                  <div className="projects-container">
+                    {projects.map(project => (
+                      <div 
+                        key={project.id}
+                        className="project-card"
+                        onClick={() => handleProjectClick(project.id)}
+                      >
+                        <div className="project-card-header">
+                          {editingProjectId === project.id ? (
+                            <input
+                              type="text"
+                              value={editingProjectTitle}
+                              onChange={(e) => setEditingProjectTitle(e.target.value)}
+                              className="edit-card-title-input"
+                              autoFocus
+                              onKeyPress={(e) => e.key === 'Enter' && handleSaveProjectEdit()}
+                              onBlur={handleSaveProjectEdit}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <h3 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEditProject(project.id, project.title)
+                              }}
+                              className="clickable-project-title"
+                            >
+                              {project.title}
+                            </h3>
+                          )}
+                        </div>
+                        
+                        <div className="project-card-divider"></div>
+                        
+                        <div className="project-card-content">
+                          <MiniKanbanView projectId={project.id} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Calendar View */}
+              <div className={`calendar-view-container ${activeTab === 'calendar' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
+                <div className="calendar-view">
+                  <CalendarView currentProject={selectedProject} />
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Calendar View */}
-          <div className={`calendar-view-container ${activeTab === 'calendar' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
-            <div className="calendar-view">
-              <CalendarView currentProject={selectedProject} />
-            </div>
-          </div>
-
-          {/* Analytics View */}
-          <div className={`analytics-view-container ${activeTab === 'analytics' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
-            <div className="analytics-view">
-              <AnalyticsView />
-            </div>
-          </div>
-        </div>
-      </main>
+          </main>
+        </>
+      )}
     </div>
   )
 }
