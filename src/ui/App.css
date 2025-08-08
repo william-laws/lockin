@@ -1481,10 +1481,7 @@ body {
   transition: opacity 0.3s ease;
 }
 
-/* Focus Mode when window is not focused */
-.kanban-board.focus-mode.unfocused {
-  opacity: 0.1;
-}
+/* Mini Focus Mode removed */
 
 .kanban-board.focus-mode .kanban-columns {
   flex: 1;
@@ -1523,6 +1520,32 @@ body {
   flex-shrink: 0;
 }
 
+/* Mini Focus Header removed */
+
+/* Mini focus timer removed */
+
+/* Mini timer display removed */
+
+/* Mini focus task removed */
+
+/* Mini task container removed */
+
+/* Mini task title removed */
+
+/* Mini task controls removed */
+
+/* Mini task buttons removed */
+
+/* Mini button hover states removed */
+
+/* Mini no-task removed */
+
+/* Mini focus controls removed */
+
+/* Expand focus button removed */
+
+/* Mini focus button removed */
+
 .focus-timer {
   display: flex;
   flex-direction: column;
@@ -1555,6 +1578,7 @@ body {
   border-radius: 4px;
   transition: all 0.2s ease;
   -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
 
 .stop-focus-button:hover {
@@ -1628,6 +1652,8 @@ body {
   display: flex;
   gap: 8px;
   align-items: center;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
 
 .pause-button {

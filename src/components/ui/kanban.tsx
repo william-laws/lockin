@@ -105,6 +105,8 @@ export const Kanban = ({ projectId }: KanbanProps) => {
 
   // Focus mode state
   const [isFocusMode, setIsFocusMode] = useState(false);
+  // Mini focus mode removed
+  const [isMiniFocusMode, setIsMiniFocusMode] = useState(false);
   const [focusStartTime, setFocusStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const lastMinuteAddedRef = React.useRef(0);
@@ -460,6 +462,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     }
     
     setIsFocusMode(false);
+    setIsMiniFocusMode(false);
     setFocusStartTime(null);
     setElapsedTime(0);
     setSelectedTaskIndex(0);
@@ -472,6 +475,15 @@ export const Kanban = ({ projectId }: KanbanProps) => {
         console.error('Failed to restore window:', error);
       }
     }
+  };
+
+  // Mini focus mode removed
+  const startMiniFocusMode = async () => {
+    setIsMiniFocusMode(false);
+  };
+
+  const stopMiniFocusMode = async () => {
+    setIsMiniFocusMode(false);
   };
 
   // Helper function to find the doing column (by ID or title)
@@ -773,7 +785,10 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   console.log('Focus state:', { isFocusMode, isWindowFocused, shouldBeUnfocused: isFocusMode && !isWindowFocused });
 
   return (
-    <div className={cn("kanban-board", isFocusMode && "focus-mode", isFocusMode && !isWindowFocused && "unfocused")}>
+    <div className={cn("kanban-board", 
+      isFocusMode && "focus-mode",
+      isFocusMode && !isWindowFocused && "unfocused"
+    )}>
       {isFocusMode && (
         <div className="focus-header">
           <div className="focus-timer">
@@ -791,6 +806,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
                 Exit Break
               </button>
             )}
+            {/* Mini focus removed */}
             <button 
               className="stop-focus-button"
               onClick={stopFocusMode}
@@ -801,6 +817,8 @@ export const Kanban = ({ projectId }: KanbanProps) => {
           </div>
         </div>
       )}
+
+      {/* Mini focus mode UI removed */}
       
       {/* Empty doing list warning */}
       {showEmptyDoingWarning && (

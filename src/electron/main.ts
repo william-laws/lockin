@@ -16,12 +16,14 @@ app.on("ready", ()=>{
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.cjs'),
-            devTools: false
-        }
+            devTools: true
+        },
+        useContentSize: true
     });
     
-    // Track window focus state
+    // Track window and mode states
     let isWindowFocused = true;
+    let isFocusMode = false;
     
     // Handle window focus events
     mainWindow.on('focus', () => {
@@ -37,31 +39,26 @@ app.on("ready", ()=>{
     });
     
     // Handle focus mode window resizing
-    ipcMain.handle('set-focus-mode', async (event, isFocusMode: boolean) => {
-        if (isFocusMode) {
-            // Resize to sidebar (300px wide, full height)
-            mainWindow.setSize(300, screenHeight, true);
-            mainWindow.setPosition(0, 0); // Position on left side
-            
-            // Make window always on top and visible on all workspaces (macOS)
+    ipcMain.handle('set-focus-mode', async (event, enableFocusMode: boolean) => {
+        isFocusMode = enableFocusMode;
+        // Enter focus mode: shrink to sidebar
+        if (enableFocusMode) {
+            mainWindow.setContentSize(300, screenHeight, true);
+            mainWindow.setPosition(0, 0);
             mainWindow.setAlwaysOnTop(true);
             mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-        } else {
-            // Restore to full size
-            mainWindow.setSize(screenWidth, screenHeight, true);
-            mainWindow.setPosition(0, 0);
-            
-            // Remove always on top and workspace visibility
-            mainWindow.setAlwaysOnTop(false);
-            mainWindow.setVisibleOnAllWorkspaces(false);
         }
+        // Note: when disabling focus mode we intentionally do NOT resize here,
+        // so that other modes (e.g., mini focus) can take control without a flash to fullscreen.
     });
+
+    // Remove mini-focus mode support entirely
     
     // In development, load from the Vite dev server
     if (process.env.NODE_ENV === 'development') {
-        mainWindow.loadURL('http://localhost:5173');
+        mainWindow.loadURL('http://localhost:5177');
         // DevTools disabled - uncomment the line below if you need them
-        // mainWindow.webContents.openDevTools();
+        mainWindow.webContents.openDevTools();
     } else {
         // In production, load the built files
         mainWindow.loadFile(path.join(app.getAppPath(), '/dist-react/index.html'));
