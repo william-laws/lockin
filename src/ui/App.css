@@ -253,6 +253,12 @@ body {
   background-color: #000000;
 }
 
+/* Main content in analytics view */
+.analytics-full-view .main-content {
+  overflow: hidden;
+  height: 100%;
+}
+
 /* Project view styles */
 .project-view {
   height: 100%;
@@ -398,9 +404,41 @@ body {
 }
 
 .project-card:hover {
-  background-color: #111111;
-  border-color: #007AFF;
+  background-color: #111;
   transform: translateY(-2px);
+}
+
+/* Project card hover with dynamic border color */
+.project-card[data-color="#007AFF"]:hover {
+  border-color: #007AFF;
+}
+
+.project-card[data-color="#FF3B30"]:hover {
+  border-color: #FF3B30;
+}
+
+.project-card[data-color="#34C759"]:hover {
+  border-color: #34C759;
+}
+
+.project-card[data-color="#FF9500"]:hover {
+  border-color: #FF9500;
+}
+
+.project-card[data-color="#AF52DE"]:hover {
+  border-color: #AF52DE;
+}
+
+.project-card[data-color="#FFCC00"]:hover {
+  border-color: #FFCC00;
+}
+
+.project-card[data-color="#FF6B6B"]:hover {
+  border-color: #FF6B6B;
+}
+
+.project-card[data-color="#4ECDC4"]:hover {
+  border-color: #4ECDC4;
 }
 
 .project-card h3 {
@@ -416,6 +454,49 @@ body {
 .project-card-header {
   width: 100%;
   margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.project-header-content {
+  flex: 1;
+  margin-right: 8px;
+}
+
+/* Remove old color picker styles since we moved to modal */
+
+/* Project card with dynamic border color */
+.project-card[data-color="#007AFF"] {
+  border-color: #007AFF;
+}
+
+.project-card[data-color="#FF3B30"] {
+  border-color: #FF3B30;
+}
+
+.project-card[data-color="#34C759"] {
+  border-color: #34C759;
+}
+
+.project-card[data-color="#FF9500"] {
+  border-color: #FF9500;
+}
+
+.project-card[data-color="#AF52DE"] {
+  border-color: #AF52DE;
+}
+
+.project-card[data-color="#FFCC00"] {
+  border-color: #FFCC00;
+}
+
+.project-card[data-color="#FF6B6B"] {
+  border-color: #FF6B6B;
+}
+
+.project-card[data-color="#4ECDC4"] {
+  border-color: #4ECDC4;
 }
 
 .project-card-divider {
@@ -593,6 +674,7 @@ body {
   display: flex;
   flex-direction: column;
   background-color: #000000;
+  overflow: hidden; /* Prevent the whole view from scrolling */
 }
 
 .analytics-header {
@@ -617,11 +699,13 @@ body {
 }
 
 .analytics-container {
-  height: 100%;
+  flex: 1;
   padding: 24px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   background-color: #000000;
+  gap: 32px;
+  height: 100%;
 }
 
 .analytics-header {
@@ -639,6 +723,26 @@ body {
 .analytics-header p {
   color: #888888;
   font-size: 16px;
+}
+
+.analytics-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #111;
+  border-radius: 8px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.analytics-section h3 {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  text-align: center;
+  border-bottom: 1px solid #333;
+  padding-bottom: 12px;
 }
 
 .analytics-content {
@@ -2774,4 +2878,264 @@ body {
 /* Make task card position relative for dropdown positioning */
 .task-card {
   position: relative;
+}
+
+.project-options-button {
+  flex-shrink: 0;
+}
+
+.three-dots-button {
+  background-color: transparent;
+  border: none;
+  color: #888;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.three-dots-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.project-options-modal {
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-input {
+  background-color: #222;
+  border: 1px solid #444;
+  color: #fff;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #007AFF;
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
+
+.modal-color-select {
+  background-color: #222;
+  border: 1px solid #444;
+  color: #fff;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-color-select:hover {
+  border-color: #666;
+  background-color: #333;
+}
+
+.modal-color-select:focus {
+  outline: none;
+  border-color: #007AFF;
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
+
+.pie-chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.pie-chart {
+  width: 250px;
+  height: 250px;
+  max-width: 100%;
+  flex-shrink: 0;
+}
+
+.pie-chart-label {
+  font-weight: 500;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.pie-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background-color: #222;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.legend-item:hover {
+  background-color: #333;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.legend-title {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.legend-time {
+  color: #888;
+  font-size: 12px;
+}
+
+/* Efficiency Table Styles */
+.efficiency-table-container {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.efficiency-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #222;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.efficiency-table th {
+  background-color: #333;
+  color: #fff;
+  padding: 8px 6px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 2px solid #444;
+  white-space: nowrap;
+}
+
+.efficiency-table td {
+  padding: 8px 6px;
+  color: #fff;
+  border-bottom: 1px solid #333;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.efficiency-table tbody tr:hover {
+  background-color: #333;
+}
+
+.efficiency-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.project-name-cell {
+  min-width: 80px;
+  max-width: 120px;
+}
+
+.project-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-indicator span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.efficiency-cell {
+  text-align: center;
+}
+
+.efficiency-percentage {
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.efficiency-percentage.excellent {
+  background-color: rgba(52, 199, 89, 0.2);
+  color: #34C759;
+}
+
+.efficiency-percentage.good {
+  background-color: rgba(255, 204, 0, 0.2);
+  color: #FFCC00;
+}
+
+.efficiency-percentage.needs-work {
+  background-color: rgba(255, 59, 48, 0.2);
+  color: #FF3B30;
+}
+
+.efficiency-rating {
+  font-weight: 500;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.efficiency-rating.excellent {
+  background-color: rgba(52, 199, 89, 0.2);
+  color: #34C759;
+}
+
+.efficiency-rating.good {
+  background-color: rgba(255, 204, 0, 0.2);
+  color: #FFCC00;
+}
+
+.efficiency-rating.needs-work {
+  background-color: rgba(255, 59, 48, 0.2);
+  color: #FF3B30;
 }

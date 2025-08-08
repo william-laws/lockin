@@ -6,6 +6,7 @@ import React from 'react';
 interface Project {
   id: string;
   title: string;
+  color?: string; // hex color for project border
 }
 
 interface Task {
@@ -18,8 +19,10 @@ interface Task {
   scheduledStartTime?: string; // HH:MM format
   scheduledEndTime?: string; // HH:MM format
   scheduledColor?: string; // hex color
+  estimatedTime?: string; // HH:MM format for estimated time
   projectId?: string; // Added for calendar view
   projectTitle?: string; // Added for calendar view
+  actualTime?: string; // Added for actual time tracking
 }
 
 interface Column {
@@ -48,6 +51,9 @@ function App() {
   const [newProjectTitle, setNewProjectTitle] = useState('')
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [editingProjectTitle, setEditingProjectTitle] = useState('')
+  const [showProjectOptionsModal, setShowProjectOptionsModal] = useState<string | null>(null);
+  const [projectOptionsTitle, setProjectOptionsTitle] = useState('');
+  const [projectOptionsColor, setProjectOptionsColor] = useState('#007AFF');
   
   // Calendar view state
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('week')
@@ -74,13 +80,14 @@ function App() {
     if (newProjectTitle.trim()) {
       const newProject: Project = {
         id: Math.random().toString(),
-        title: newProjectTitle.trim()
-      }
-      setProjects([...projects, newProject])
-      setNewProjectTitle('')
-      setShowAddProject(false)
+        title: newProjectTitle.trim(),
+        color: '#007AFF' // Default blue color
+      };
+      setProjects([...projects, newProject]);
+      setNewProjectTitle('');
+      setShowAddProject(false);
     }
-  }
+  };
 
   const handleProjectClick = (projectId: string) => {
     console.log('Selecting project:', projectId);
@@ -113,6 +120,39 @@ function App() {
     setEditingProjectId(null)
     setEditingProjectTitle('')
   }
+
+  const handleProjectColorChange = (projectId: string, color: string) => {
+    setProjects(projects.map(project => 
+      project.id === projectId 
+        ? { ...project, color }
+        : project
+    ));
+  };
+
+  const handleOpenProjectOptions = (project: Project) => {
+    setShowProjectOptionsModal(project.id);
+    setProjectOptionsTitle(project.title);
+    setProjectOptionsColor(project.color || '#007AFF');
+  };
+
+  const handleSaveProjectOptions = () => {
+    if (showProjectOptionsModal && projectOptionsTitle.trim()) {
+      setProjects(projects.map(project => 
+        project.id === showProjectOptionsModal 
+          ? { ...project, title: projectOptionsTitle.trim(), color: projectOptionsColor }
+          : project
+      ));
+      setShowProjectOptionsModal(null);
+      setProjectOptionsTitle('');
+      setProjectOptionsColor('#007AFF');
+    }
+  };
+
+  const handleCancelProjectOptions = () => {
+    setShowProjectOptionsModal(null);
+    setProjectOptionsTitle('');
+    setProjectOptionsColor('#007AFF');
+  };
 
   // Calendar view functions
   const handleTabChange = (newTab: 'project' | 'calendar' | 'analytics') => {
@@ -649,33 +689,312 @@ function App() {
 
   // Analytics View Component
   const AnalyticsView = () => {
+    // Get all tasks across all projects
+    const getAllTasks = (): Task[] => {
+      const allTasks: Task[] = [];
+      
+      projects.forEach(project => {
+        try {
+          const savedData = localStorage.getItem(`kanban-${project.id}`);
+          if (savedData) {
+            const parsedData = JSON.parse(savedData);
+            const projectTasks = (parsedData.tasks || []) as Task[];
+            const tasksWithProject = projectTasks.map((task: Task) => ({
+              ...task,
+              projectId: project.id,
+              projectTitle: project.title
+            }));
+            allTasks.push(...tasksWithProject);
+          }
+        } catch (error) {
+          console.error('Error loading tasks for project:', project.id, error);
+        }
+      });
+      
+      return allTasks;
+    };
+
+    // Calculate total time spent on each project
+    const getProjectTimeDistribution = () => {
+      const projectTimes: { [key: string]: number } = {};
+      const allTasks = getAllTasks();
+      
+      projects.forEach(project => {
+        let totalMinutes = 0;
+        
+        // Get all tasks for this project
+        const projectTasks = allTasks.filter((task: Task) => task.projectId === project.id);
+        
+        // Sum up actual time for all tasks in this project
+        projectTasks.forEach((task: Task) => {
+          if (task.actualTime) {
+            const [hours, minutes] = task.actualTime.split(':').map(Number);
+            totalMinutes += hours * 60 + minutes;
+          }
+        });
+        
+        projectTimes[project.id] = totalMinutes;
+      });
+      
+      return projectTimes;
+    };
+
+    const projectTimeDistribution = getProjectTimeDistribution();
+    const totalTime = Object.values(projectTimeDistribution).reduce((sum, time) => sum + time, 0);
+
+    const renderPieChart = () => {
+      if (totalTime === 0) {
     return (
-      <div className="analytics-container">
-        <div className="analytics-content">
-          <div className="analytics-section">
-            <h3>Project Time Distribution</h3>
-            <div className="analytics-placeholder">
-              <p>Pie chart showing time spent on each project will appear here</p>
-            </div>
-          </div>
-          
-          <div className="analytics-section">
-            <h3>Time Estimation Accuracy</h3>
-            <div className="analytics-placeholder">
-              <p>Chart comparing estimated vs actual time will appear here</p>
-            </div>
-          </div>
-          
-          <div className="analytics-section">
-            <h3>Productivity Insights</h3>
-            <div className="analytics-placeholder">
-              <p>Additional analytics and insights will appear here</p>
-            </div>
+          <div className="analytics-placeholder">
+            <p>No time data available. Start working on tasks to see your project time distribution.</p>
+        </div>
+        );
+      }
+
+      const sortedProjects = projects
+        .filter(project => projectTimeDistribution[project.id] > 0)
+        .sort((a, b) => projectTimeDistribution[b.id] - projectTimeDistribution[a.id]);
+
+      return (
+        <div className="pie-chart-container">
+          <svg className="pie-chart" viewBox="0 0 200 200">
+            {(() => {
+              let currentAngle = 0;
+              return sortedProjects.map((project, index) => {
+                const time = projectTimeDistribution[project.id];
+                const percentage = (time / totalTime) * 100;
+                const angle = (percentage / 100) * 360;
+                const radius = 80;
+                const centerX = 100;
+                const centerY = 100;
+                
+                // Calculate arc coordinates
+                const startAngle = currentAngle * (Math.PI / 180);
+                const endAngle = (currentAngle + angle) * (Math.PI / 180);
+                
+                const x1 = centerX + radius * Math.cos(startAngle);
+                const y1 = centerY + radius * Math.sin(startAngle);
+                const x2 = centerX + radius * Math.cos(endAngle);
+                const y2 = centerY + radius * Math.sin(endAngle);
+                
+                const largeArcFlag = angle > 180 ? 1 : 0;
+                
+                const pathData = [
+                  `M ${centerX} ${centerY}`,
+                  `L ${x1} ${y1}`,
+                  `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                  'Z'
+                ].join(' ');
+                
+                // Calculate label position
+                const labelAngle = (currentAngle + angle / 2) * (Math.PI / 180);
+                const labelRadius = radius + 15;
+                const labelX = centerX + labelRadius * Math.cos(labelAngle);
+                const labelY = centerY + labelRadius * Math.sin(labelAngle);
+                
+                currentAngle += angle;
+                
+                return (
+                  <g key={project.id}>
+                    <path
+                      d={pathData}
+                      fill="#000"
+                      stroke={project.color || '#007AFF'}
+                      strokeWidth="3"
+                    />
+                    <text
+                      x={labelX}
+                      y={labelY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="pie-chart-label"
+                      fontSize="10"
+                      fill="#fff"
+                    >
+                      {project.title}
+                    </text>
+                  </g>
+                );
+              });
+            })()}
+          </svg>
+          <div className="pie-chart-legend">
+            {sortedProjects.map(project => {
+              const time = projectTimeDistribution[project.id];
+              const percentage = ((time / totalTime) * 100).toFixed(1);
+              const hours = Math.floor(time / 60);
+              const minutes = time % 60;
+              const timeDisplay = hours > 0 
+                ? `${hours}h ${minutes}m` 
+                : `${minutes}m`;
+              
+              return (
+                <div key={project.id} className="legend-item">
+                  <div 
+                    className="legend-color" 
+                    style={{ backgroundColor: project.color || '#007AFF' }}
+                  ></div>
+                  <div className="legend-text">
+                    <span className="legend-title">{project.title}</span>
+                    <span className="legend-time">{timeDisplay} ({percentage}%)</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      );
+    };
+
+    // Calculate project efficiency data
+    const getProjectEfficiencyData = () => {
+      const allTasks = getAllTasks();
+      const efficiencyData: Array<{
+        projectId: string;
+        projectName: string;
+        projectColor: string;
+        totalEstimated: number;
+        totalActual: number;
+        efficiency: number;
+        rating: string;
+      }> = [];
+
+      projects.forEach(project => {
+        const projectTasks = allTasks.filter((task: Task) => task.projectId === project.id);
+        
+        let totalEstimatedMinutes = 0;
+        let totalActualMinutes = 0;
+
+        projectTasks.forEach((task: Task) => {
+          // Sum estimated time
+          if (task.estimatedTime && task.estimatedTime.includes(':')) {
+            const [hours, minutes] = task.estimatedTime.split(':').map(Number);
+            if (!isNaN(hours) && !isNaN(minutes)) {
+              totalEstimatedMinutes += hours * 60 + minutes;
+            }
+          }
+
+          // Sum actual time
+          if (task.actualTime && task.actualTime.includes(':')) {
+            const [hours, minutes] = task.actualTime.split(':').map(Number);
+            if (!isNaN(hours) && !isNaN(minutes)) {
+              totalActualMinutes += hours * 60 + minutes;
+            }
+          }
+        });
+
+        // Debug logging
+        if (project.title && (totalEstimatedMinutes > 0 || totalActualMinutes > 0)) {
+          console.log(`Project "${project.title}":`, {
+            tasks: projectTasks.length,
+            totalEstimated: totalEstimatedMinutes,
+            totalActual: totalActualMinutes,
+            tasksWithEstimates: projectTasks.filter(t => t.estimatedTime).length,
+            tasksWithActual: projectTasks.filter(t => t.actualTime).length
+          });
+        }
+
+        // Only include projects that have both estimated and actual time
+        if (totalEstimatedMinutes > 0 && totalActualMinutes > 0) {
+          const efficiency = (totalActualMinutes / totalEstimatedMinutes) * 100;
+          
+          let rating = "Needs work";
+          if (efficiency <= 110 && efficiency >= 90) {
+            rating = "Excellent";
+          } else if (efficiency <= 130 && efficiency >= 80) {
+            rating = "Good";
+          }
+
+          efficiencyData.push({
+            projectId: project.id,
+            projectName: project.title,
+            projectColor: project.color || '#007AFF',
+            totalEstimated: totalEstimatedMinutes,
+            totalActual: totalActualMinutes,
+            efficiency: efficiency,
+            rating: rating
+          });
+        }
+      });
+
+      return efficiencyData.sort((a, b) => a.efficiency - b.efficiency);
+    };
+
+    const formatTime = (minutes: number): string => {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    };
+
+    const renderEfficiencyTable = () => {
+      const efficiencyData = getProjectEfficiencyData();
+
+      if (efficiencyData.length === 0) {
+        return (
+            <div className="analytics-placeholder">
+            <p>No efficiency data available. Add estimated times to your tasks to see project efficiency analysis.</p>
+            </div>
+        );
+      }
+
+      return (
+        <div className="efficiency-table-container">
+          <table className="efficiency-table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Estimated Time</th>
+                <th>Actual Time</th>
+                <th>Efficiency</th>
+                <th>Rating</th>
+              </tr>
+            </thead>
+            <tbody>
+              {efficiencyData.map(project => (
+                <tr key={project.projectId}>
+                  <td className="project-name-cell">
+                    <div className="project-indicator">
+                      <div 
+                        className="project-color-dot" 
+                        style={{ backgroundColor: project.projectColor }}
+                      ></div>
+                      <span>{project.projectName}</span>
+          </div>
+                  </td>
+                  <td>{formatTime(project.totalEstimated)}</td>
+                  <td>{formatTime(project.totalActual)}</td>
+                  <td className="efficiency-cell">
+                    <span className={`efficiency-percentage ${project.rating.toLowerCase().replace(' ', '-')}`}>
+                      {project.efficiency.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`efficiency-rating ${project.rating.toLowerCase().replace(' ', '-')}`}>
+                      {project.rating}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    };
+
+        return (
+      <div className="analytics-container">
+        <div className="analytics-section">
+          <h3>Project Time Distribution</h3>
+          {renderPieChart()}
+        </div>
+        
+        <div className="analytics-section">
+          <h3>Project Efficiency</h3>
+          {renderEfficiencyTable()}
+        </div>
       </div>
-    )
-  }
+    );
+  };
 
   // Helper function to get kanban data for a project
   const getProjectKanbanData = (projectId: string) => {
@@ -804,135 +1123,185 @@ function App() {
         </div>
       ) : (
         <>
-          {/* Header with centered toggle switcher and analytics button */}
-          <header className="header">
-            <div className="header-content">
-              <div className="toggle-container">
-                <div className="ios-toggle-switch">
-                  <div className="toggle-track">
-                    <div className={`toggle-slider ${activeTab === 'calendar' ? 'active' : ''}`}></div>
-                  </div>
-                  <div className="toggle-labels">
-                    <span className={`toggle-label ${activeTab === 'project' ? 'active' : ''}`}>Project</span>
-                    <span className={`toggle-label ${activeTab === 'calendar' ? 'active' : ''}`}>Calendar</span>
-                  </div>
-                  <button 
-                    className="toggle-button"
-                    onClick={() => handleTabChange(activeTab === 'project' ? 'calendar' : 'project')}
-                    aria-label={`Switch to ${activeTab === 'project' ? 'calendar' : 'project'} view`}
-                  >
-                    <span className="sr-only">Toggle view</span>
-                  </button>
-                </div>
+      {/* Header with centered toggle switcher and analytics button */}
+      <header className="header">
+        <div className="header-content">
+          <div className="toggle-container">
+            <div className="ios-toggle-switch">
+              <div className="toggle-track">
+                <div className={`toggle-slider ${activeTab === 'calendar' ? 'active' : ''}`}></div>
+              </div>
+              <div className="toggle-labels">
+                <span className={`toggle-label ${activeTab === 'project' ? 'active' : ''}`}>Project</span>
+                <span className={`toggle-label ${activeTab === 'calendar' ? 'active' : ''}`}>Calendar</span>
               </div>
               <button 
-                className="analytics-button"
-                onClick={() => setShowAnalyticsView(true)}
-                title="Analytics"
+                className="toggle-button"
+                onClick={() => handleTabChange(activeTab === 'project' ? 'calendar' : 'project')}
+                aria-label={`Switch to ${activeTab === 'project' ? 'calendar' : 'project'} view`}
               >
-                Analytics
+                <span className="sr-only">Toggle view</span>
               </button>
             </div>
-          </header>
+          </div>
+          <button 
+            className="analytics-button"
+                onClick={() => setShowAnalyticsView(true)}
+            title="Analytics"
+          >
+            Analytics
+          </button>
+        </div>
+      </header>
 
-          {/* Main content area */}
-          <main className="main-content">
-            <div className="view-container">
-              {/* Project View */}
-              <div className={`project-view-container ${activeTab === 'project' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-out-left' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-in-left' : ''} ${activeTab === 'calendar' ? 'hidden' : ''}`}>
-                <div className="project-view">
-                  <div className="add-project-section">
-                    {showAddProject ? (
-                      <div className="add-project-form">
-                        <input
-                          type="text"
-                          value={newProjectTitle}
-                          onChange={(e) => setNewProjectTitle(e.target.value)}
-                          placeholder="Enter project title..."
-                          className="project-input"
-                          autoFocus
-                          onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
-                        />
-                        <div className="form-buttons">
-                          <button 
-                            onClick={handleAddProject}
-                            className="save-button"
-                          >
-                            Save
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setShowAddProject(false)
-                              setNewProjectTitle('')
-                            }}
-                            className="cancel-button"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
+            {/* Main content area */}
+      <main className="main-content">
+        <div className="view-container">
+          {/* Project View */}
+          <div className={`project-view-container ${activeTab === 'project' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-out-left' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-in-left' : ''} ${activeTab === 'calendar' ? 'hidden' : ''}`}>
+            <div className="project-view">
+              <div className="add-project-section">
+                {showAddProject ? (
+                  <div className="add-project-form">
+                    <input
+                      type="text"
+                      value={newProjectTitle}
+                      onChange={(e) => setNewProjectTitle(e.target.value)}
+                      placeholder="Enter project title..."
+                      className="project-input"
+                      autoFocus
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
+                    />
+                    <div className="form-buttons">
                       <button 
-                        className="add-project-button"
-                        onClick={() => setShowAddProject(true)}
+                        onClick={handleAddProject}
+                        className="save-button"
                       >
-                        <div className="plus-icon">+</div>
-                        <span>Add Project</span>
+                        Save
                       </button>
-                    )}
-                  </div>
-                  <div className="projects-container">
-                    {projects.map(project => (
-                      <div 
-                        key={project.id}
-                        className="project-card"
-                        onClick={() => handleProjectClick(project.id)}
+                      <button 
+                        onClick={() => {
+                          setShowAddProject(false)
+                          setNewProjectTitle('')
+                        }}
+                        className="cancel-button"
                       >
-                        <div className="project-card-header">
-                          {editingProjectId === project.id ? (
-                            <input
-                              type="text"
-                              value={editingProjectTitle}
-                              onChange={(e) => setEditingProjectTitle(e.target.value)}
-                              className="edit-card-title-input"
-                              autoFocus
-                              onKeyPress={(e) => e.key === 'Enter' && handleSaveProjectEdit()}
-                              onBlur={handleSaveProjectEdit}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <h3 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleEditProject(project.id, project.title)
-                              }}
-                              className="clickable-project-title"
-                            >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    className="add-project-button"
+                    onClick={() => setShowAddProject(true)}
+                  >
+                    <div className="plus-icon">+</div>
+                    <span>Add Project</span>
+                  </button>
+                )}
+              </div>
+              <div className="projects-container">
+                {projects.map(project => (
+                  <div 
+                    key={project.id}
+                    className="project-card"
+                        data-color={project.color || '#007AFF'}
+                    onClick={() => handleProjectClick(project.id)}
+                  >
+                    <div className="project-card-header">
+                          <div className="project-header-content">
+                            <h3 className="project-title">
                               {project.title}
                             </h3>
-                          )}
-                        </div>
-                        
-                        <div className="project-card-divider"></div>
-                        
-                        <div className="project-card-content">
-                          <MiniKanbanView projectId={project.id} />
-                        </div>
-                      </div>
-                    ))}
+                          </div>
+                          <div className="project-options-button">
+                            <button 
+                              className="three-dots-button"
+                          onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenProjectOptions(project);
+                              }}
+                              title="Project options"
+                            >
+                              ⋯
+                            </button>
+                          </div>
+                    </div>
+                    
+                    <div className="project-card-divider"></div>
+                    
+                    <div className="project-card-content">
+                      <MiniKanbanView projectId={project.id} />
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
+            </div>
+          </div>
 
-              {/* Calendar View */}
-              <div className={`calendar-view-container ${activeTab === 'calendar' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
-                <div className="calendar-view">
-                  <CalendarView currentProject={selectedProject} />
-                </div>
-              </div>
+          {/* Calendar View */}
+          <div className={`calendar-view-container ${activeTab === 'calendar' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-in-right' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-out-right' : ''} ${activeTab === 'project' ? 'hidden' : ''}`}>
+            <div className="calendar-view">
+              <CalendarView currentProject={selectedProject} />
+            </div>
+          </div>
             </div>
           </main>
         </>
+      )}
+      {/* Project Options Modal */}
+      {showProjectOptionsModal && (
+        <div className="modal-overlay" onClick={handleCancelProjectOptions}>
+          <div className="modal-content project-options-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Project Options</h3>
+            <div className="modal-form">
+              <div className="form-group">
+                <label htmlFor="project-title">Project Name</label>
+                <input
+                  id="project-title"
+                  type="text"
+                  value={projectOptionsTitle}
+                  onChange={(e) => setProjectOptionsTitle(e.target.value)}
+                  className="modal-input"
+                  placeholder="Enter project name..."
+                  autoFocus
+                />
+          </div>
+              <div className="form-group">
+                <label htmlFor="project-color">Project Color</label>
+                <select
+                  id="project-color"
+                  value={projectOptionsColor}
+                  onChange={(e) => setProjectOptionsColor(e.target.value)}
+                  className="modal-color-select"
+                >
+                  <option value="#007AFF">🔵</option>
+                  <option value="#FF3B30">🔴</option>
+                  <option value="#34C759">🟢</option>
+                  <option value="#FF9500">🟠</option>
+                  <option value="#AF52DE">🟣</option>
+                  <option value="#FFCC00">🟡</option>
+                  <option value="#FF6B6B">🔺</option>
+                  <option value="#4ECDC4">🔷</option>
+                </select>
+        </div>
+              <div className="modal-actions">
+                <button 
+                  onClick={handleSaveProjectOptions}
+                  className="save-button"
+                >
+                  Save
+                </button>
+                <button 
+                  onClick={handleCancelProjectOptions}
+                  className="cancel-button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
