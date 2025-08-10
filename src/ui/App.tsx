@@ -865,32 +865,51 @@ function App() {
         let totalEstimatedMinutes = 0;
         let totalActualMinutes = 0;
 
-        projectTasks.forEach((task: Task) => {
-          // Sum estimated time
-          if (task.estimatedTime && task.estimatedTime.includes(':')) {
-            const [hours, minutes] = task.estimatedTime.split(':').map(Number);
-            if (!isNaN(hours) && !isNaN(minutes)) {
-              totalEstimatedMinutes += hours * 60 + minutes;
-            }
+        // Helper function to parse time string (handles single digit hours/minutes)
+        const parseTimeString = (timeStr: string): number => {
+          if (!timeStr || !timeStr.includes(':')) return 0;
+          
+          const parts = timeStr.split(':');
+          if (parts.length !== 2) return 0;
+          
+          const hours = parseInt(parts[0].trim(), 10);
+          const minutes = parseInt(parts[1].trim(), 10);
+          
+          if (isNaN(hours) || isNaN(minutes) || hours < 0 || minutes < 0 || minutes >= 60) {
+            return 0;
           }
+          
+          return hours * 60 + minutes;
+        };
 
-          // Sum actual time
-          if (task.actualTime && task.actualTime.includes(':')) {
-            const [hours, minutes] = task.actualTime.split(':').map(Number);
-            if (!isNaN(hours) && !isNaN(minutes)) {
-              totalActualMinutes += hours * 60 + minutes;
-            }
+        // Get all tasks (for estimated time calculation)
+        projectTasks.forEach((task: Task) => {
+          // Sum ALL estimated times (regardless of completion status)
+          if (task.estimatedTime) {
+            const minutes = parseTimeString(task.estimatedTime);
+            totalEstimatedMinutes += minutes;
+          }
+        });
+
+        // Get only COMPLETED tasks (for actual time calculation)
+        const completedTasks = projectTasks.filter((task: Task) => task.column === 'done');
+        completedTasks.forEach((task: Task) => {
+          // Sum actual time only from completed tasks
+          if (task.actualTime) {
+            const minutes = parseTimeString(task.actualTime);
+            totalActualMinutes += minutes;
           }
         });
 
         // Debug logging
         if (project.title && (totalEstimatedMinutes > 0 || totalActualMinutes > 0)) {
           console.log(`Project "${project.title}":`, {
-            tasks: projectTasks.length,
+            allTasks: projectTasks.length,
+            completedTasks: completedTasks.length,
             totalEstimated: totalEstimatedMinutes,
             totalActual: totalActualMinutes,
             tasksWithEstimates: projectTasks.filter(t => t.estimatedTime).length,
-            tasksWithActual: projectTasks.filter(t => t.actualTime).length
+            completedTasksWithActual: completedTasks.filter(t => t.actualTime).length
           });
         }
 
