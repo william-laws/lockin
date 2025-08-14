@@ -5,6 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: './',
+  server: {
+    port: 5173,
+    strictPort: false, // Allow Vite to find an available port if 5173 is busy
+  },
   build: {
     outDir: 'dist-react',
   }

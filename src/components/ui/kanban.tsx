@@ -855,7 +855,7 @@ export const Kanban = ({ projectId }: KanbanProps) => {
             <div className="column-header">
               <h3 className="column-title">{column.title}</h3>
               <div className="column-actions">
-                {!isFocusMode || (column.id !== 'doing' && column.title.toLowerCase() !== 'doing') && (
+                {((!isFocusMode) || (column.id !== 'doing' && column.title.toLowerCase() !== 'doing')) && (
                   <button 
                     className="add-task-button"
                     onClick={() => setShowAddTask(column.id)}

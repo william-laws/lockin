@@ -7,7 +7,7 @@
   "scripts": {
     "dev:react": "vite",
     "dev:electron": "cross-env NODE_ENV=development electron .",
-    "dev": "npm run dev:react & sleep 3 && npm run dev:electron",
+    "dev": "npm run dev:react & sleep 5 && npm run dev:electron",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -17,6 +17,7 @@
     "dist:linux": "npm run transpile:electron && npm run build && electron-builder --linux --x64"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.54.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^24.1.0",
     "autoprefixer": "^10.4.21",

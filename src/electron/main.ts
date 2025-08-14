@@ -56,9 +56,27 @@ app.on("ready", ()=>{
     
     // In development, load from the Vite dev server
     if (process.env.NODE_ENV === 'development') {
-        mainWindow.loadURL('http://localhost:5177');
-        // DevTools disabled - uncomment the line below if you need them
-        mainWindow.webContents.openDevTools();
+        // Try to load from common Vite ports
+        const tryLoadDevServer = async () => {
+            const ports = [5173, 5174, 5175, 3000];
+            
+            for (const port of ports) {
+                try {
+                    console.log(`Trying to load from port ${port}`);
+                    await mainWindow.loadURL(`http://localhost:${port}`);
+                    console.log(`Successfully loaded from port ${port}`);
+                    mainWindow.webContents.openDevTools();
+                    return;
+                } catch (error) {
+                    console.log(`Port ${port} failed:`, error instanceof Error ? error.message : String(error));
+                    continue;
+                }
+            }
+            
+            console.error('Failed to load from any dev server port. Please ensure the dev server is running.');
+        };
+        
+        tryLoadDevServer();
     } else {
         // In production, load the built files
         mainWindow.loadFile(path.join(app.getAppPath(), '/dist-react/index.html'));

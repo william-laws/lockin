@@ -1,1 +1,1 @@
-{"root":["./src/components/ui/kanban.tsx","./src/lib/utils.ts","./src/ui/app.tsx","./src/ui/main.tsx","./src/ui/vite-env.d.ts"],"version":"5.8.3"}
+{"root":["./src/components/ui/kanban.tsx","./src/config/google.ts","./src/lib/googlecalendar.ts","./src/lib/supabase.ts","./src/lib/utils.ts","./src/ui/app.tsx","./src/ui/main.tsx","./src/ui/vite-env.d.ts"],"version":"5.8.3"}

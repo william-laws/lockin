@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Kanban } from '../components/ui/kanban'
+import { googleCalendarService } from '../lib/googleCalendar'
 import './App.css'
 import React from 'react';
 
@@ -60,6 +61,12 @@ function App() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionDirection, setTransitionDirection] = useState<'left' | 'right' | null>(null)
   const [showAnalyticsView, setShowAnalyticsView] = useState(false)
+  const [isFadeTransitioning, setIsFadeTransitioning] = useState(false)
+  
+  // Google Calendar connection state
+  const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false)
+  const [googleCalendarEmail, setGoogleCalendarEmail] = useState<string | null>(null)
+  const [isConnectingGoogleCalendar, setIsConnectingGoogleCalendar] = useState(false)
 
   // Save projects to localStorage whenever projects change
   React.useEffect(() => {
@@ -76,6 +83,24 @@ function App() {
     console.log('selectedProject changed to:', selectedProject);
   }, [selectedProject]);
 
+           // Check Google Calendar connection status on component mount
+         React.useEffect(() => {
+           const checkGoogleCalendarConnection = async () => {
+             try {
+               const isConnected = await googleCalendarService.isConnected()
+               setIsGoogleCalendarConnected(isConnected)
+               if (isConnected) {
+                 const email = await googleCalendarService.getConnectionEmail()
+                 setGoogleCalendarEmail(email)
+               }
+             } catch (error) {
+               console.error('Error checking Google Calendar connection:', error)
+             }
+           }
+           
+           checkGoogleCalendarConnection()
+         }, [])
+
   const handleAddProject = () => {
     if (newProjectTitle.trim()) {
       const newProject: Project = {
@@ -91,12 +116,20 @@ function App() {
 
   const handleProjectClick = (projectId: string) => {
     console.log('Selecting project:', projectId);
-    setSelectedProject(projectId)
+    setIsFadeTransitioning(true);
+    setTimeout(() => {
+      setSelectedProject(projectId);
+      setIsFadeTransitioning(false);
+    }, 150);
   }
 
   const handleBackToProjects = () => {
     console.log('Going back to projects, current selectedProject:', selectedProject);
-    setSelectedProject(null)
+    setIsFadeTransitioning(true);
+    setTimeout(() => {
+      setSelectedProject(null);
+      setIsFadeTransitioning(false);
+    }, 150);
   }
 
   const handleEditProject = (projectId: string, currentTitle: string) => {
@@ -153,6 +186,53 @@ function App() {
     setProjectOptionsTitle('');
     setProjectOptionsColor('#007AFF');
   };
+
+  // Analytics view transition handlers
+  const handleShowAnalytics = () => {
+    setIsFadeTransitioning(true);
+    setTimeout(() => {
+      setShowAnalyticsView(true);
+      setIsFadeTransitioning(false);
+    }, 150);
+  };
+
+  const handleHideAnalytics = () => {
+    setIsFadeTransitioning(true);
+    setTimeout(() => {
+      setShowAnalyticsView(false);
+      setIsFadeTransitioning(false);
+    }, 150);
+  };
+
+  // Google Calendar connection handlers
+  const handleConnectGoogleCalendar = async () => {
+    try {
+      setIsConnectingGoogleCalendar(true)
+      await googleCalendarService.connectGoogleCalendar()
+      
+      // Check connection status immediately after successful OAuth
+      const isConnected = await googleCalendarService.isConnected()
+      setIsGoogleCalendarConnected(isConnected)
+      if (isConnected) {
+        const email = await googleCalendarService.getConnectionEmail()
+        setGoogleCalendarEmail(email)
+      }
+    } catch (error) {
+      console.error('Error connecting to Google Calendar:', error)
+    } finally {
+      setIsConnectingGoogleCalendar(false)
+    }
+  }
+
+  const handleDisconnectGoogleCalendar = async () => {
+    try {
+      await googleCalendarService.disconnectGoogleCalendar()
+      setIsGoogleCalendarConnected(false)
+      setGoogleCalendarEmail(null)
+    } catch (error) {
+      console.error('Error disconnecting from Google Calendar:', error)
+    }
+  }
 
   // Calendar view functions
   const handleTabChange = (newTab: 'project' | 'calendar' | 'analytics') => {
@@ -1084,7 +1164,7 @@ function App() {
 
   if (selectedProject) {
     return (
-      <div className="app">
+      <div className={`app ${isFadeTransitioning ? 'fade-out' : 'fade-in'}`}>
         <header className="header">
           <button 
             onClick={handleBackToProjects}
@@ -1123,13 +1203,13 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${isFadeTransitioning ? 'fade-out' : 'fade-in'}`}>
       {/* Analytics View */}
       {showAnalyticsView ? (
-        <div className="analytics-full-view">
+        <div className={`analytics-full-view ${isFadeTransitioning ? 'fade-out' : 'fade-in'}`}>
           <header className="analytics-header">
             <button 
-              onClick={() => setShowAnalyticsView(false)}
+              onClick={handleHideAnalytics}
               className="back-button"
             >
               ← Back
@@ -1165,10 +1245,19 @@ function App() {
           </div>
           <button 
             className="analytics-button"
-                onClick={() => setShowAnalyticsView(true)}
+                onClick={handleShowAnalytics}
             title="Analytics"
           >
             Analytics
+          </button>
+          <button 
+            className={`google-calendar-button ${isGoogleCalendarConnected ? 'connected' : ''}`}
+            onClick={isGoogleCalendarConnected ? handleDisconnectGoogleCalendar : handleConnectGoogleCalendar}
+            title={isGoogleCalendarConnected ? 'Disconnect Google Calendar' : 'Connect Google Calendar'}
+            disabled={isConnectingGoogleCalendar}
+          >
+            {isConnectingGoogleCalendar ? 'Connecting...' : 
+             isGoogleCalendarConnected ? 'Calendar Connected' : 'Connect Google Calendar'}
           </button>
         </div>
       </header>
@@ -1177,7 +1266,7 @@ function App() {
       <main className="main-content">
         <div className="view-container">
           {/* Project View */}
-          <div className={`project-view-container ${activeTab === 'project' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-out-left' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-in-left' : ''} ${activeTab === 'calendar' ? 'hidden' : ''}`}>
+          <div className={`project-view-container ${activeTab === 'project' ? 'active' : ''} ${isTransitioning && transitionDirection === 'left' ? 'slide-out-left' : ''} ${isTransitioning && transitionDirection === 'right' ? 'slide-in-left' : ''} ${activeTab === 'calendar' ? 'hidden' : ''} ${isFadeTransitioning ? 'fade-out' : 'fade-in'}`}>
             <div className="project-view">
               <div className="add-project-section">
                 {showAddProject ? (
