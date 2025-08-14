@@ -769,6 +769,29 @@ function App() {
 
   // Analytics View Component
   const AnalyticsView = () => {
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+
+    // Daily analytics storage functions
+    const saveDailyAnalytics = (date: string, data: any) => {
+      try {
+        localStorage.setItem(`daily-analytics-${date}`, JSON.stringify(data));
+      } catch (error) {
+        console.error('Error saving daily analytics:', error);
+      }
+    };
+
+    const getDailyAnalytics = (date: string) => {
+      try {
+        const saved = localStorage.getItem(`daily-analytics-${date}`);
+        return saved ? JSON.parse(saved) : null;
+      } catch (error) {
+        console.error('Error loading daily analytics:', error);
+        return null;
+      }
+    };
+
     // Get all tasks across all projects
     const getAllTasks = (): Task[] => {
       const allTasks: Task[] = [];
@@ -820,29 +843,161 @@ function App() {
     };
 
     const projectTimeDistribution = getProjectTimeDistribution();
-    const totalTime = Object.values(projectTimeDistribution).reduce((sum, time) => sum + time, 0);
+    
+    // Load break minutes per project and include as a separate slice
+    let totalBreakMinutes = 0;
+    try {
+      projects.forEach(project => {
+        const saved = localStorage.getItem(`kanban-${project.id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed.breakMinutes === 'number') {
+            totalBreakMinutes += parsed.breakMinutes;
+          }
+        }
+      });
+    } catch (e) {
+      console.error('Error aggregating break minutes for analytics:', e);
+    }
+
+    const totalTime = Object.values(projectTimeDistribution).reduce((sum, time) => sum + time, 0) + totalBreakMinutes;
+
+    // Save today's analytics data
+    React.useEffect(() => {
+      if (totalTime > 0) {
+        const todayData = {
+          date: new Date().toISOString().split('T')[0],
+          projectTimeDistribution,
+          totalBreakMinutes,
+          totalTime,
+          timestamp: Date.now()
+        };
+        saveDailyAnalytics(todayData.date, todayData);
+      }
+    }, [projectTimeDistribution, totalBreakMinutes, totalTime]);
+
+    // Get data for selected date
+    const getSelectedDateData = () => {
+      const savedData = getDailyAnalytics(selectedDate);
+      return savedData || { projectTimeDistribution: {}, totalBreakMinutes: 0, totalTime: 0 };
+    };
+
+    const selectedDateData = getSelectedDateData();
+
+    // Calendar functions
+    const getDaysInMonth = (date: Date) => {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+      const firstDayOfWeek = firstDay.getDay();
+      
+      return { daysInMonth, firstDayOfWeek, year, month };
+    };
+
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const isToday = (date: Date) => {
+      return formatDate(date) === new Date().toISOString().split('T')[0];
+    };
+
+    const isSelected = (date: Date) => {
+      return formatDate(date) === selectedDate;
+    };
+
+    const hasData = (date: Date) => {
+      const dateStr = formatDate(date);
+      const dayData = getDailyAnalytics(dateStr);
+      return dayData && dayData.totalTime > 0;
+    };
+
+    const renderCalendar = () => {
+      const { daysInMonth, firstDayOfWeek, year, month } = getDaysInMonth(currentMonth);
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      return (
+        <div className="analytics-calendar">
+          <div className="calendar-header">
+            <button 
+              className="calendar-nav-btn"
+              onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
+            >
+              ←
+            </button>
+            <h4>{monthNames[month]} {year}</h4>
+            <button 
+              className="calendar-nav-btn"
+              onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
+            >
+              →
+            </button>
+          </div>
+          
+          <div className="calendar-grid">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <div key={day} className="calendar-day-header">{day}</div>
+            ))}
+            
+            {Array.from({ length: firstDayOfWeek }, (_, i) => (
+              <div key={`empty-${i}`} className="calendar-day empty"></div>
+            ))}
+            
+            {Array.from({ length: daysInMonth }, (_, i) => {
+              const date = new Date(year, month, i + 1);
+              const dayData = hasData(date);
+              const today = isToday(date);
+              const selected = isSelected(date);
+              
+              return (
+                <div 
+                  key={i + 1}
+                  className={`calendar-day ${dayData ? 'has-data' : ''} ${today ? 'today' : ''} ${selected ? 'selected' : ''}`}
+                  onClick={() => {
+                    setSelectedDate(formatDate(date));
+                    setShowCalendar(false);
+                  }}
+                >
+                  {i + 1}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
 
     const renderPieChart = () => {
-      if (totalTime === 0) {
-    return (
+      if (selectedDateData.totalTime === 0) {
+        return (
           <div className="analytics-placeholder">
-            <p>No time data available. Start working on tasks to see your project time distribution.</p>
-        </div>
+            <p>No time data available for {selectedDate}. Start working on tasks to see your project time distribution.</p>
+          </div>
         );
       }
 
       const sortedProjects = projects
-        .filter(project => projectTimeDistribution[project.id] > 0)
-        .sort((a, b) => projectTimeDistribution[b.id] - projectTimeDistribution[a.id]);
+        .filter(project => selectedDateData.projectTimeDistribution[project.id] > 0)
+        .sort((a, b) => selectedDateData.projectTimeDistribution[b.id] - selectedDateData.projectTimeDistribution[a.id]);
 
       return (
         <div className="pie-chart-container">
           <svg className="pie-chart" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="breakGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ef4444" />
+                <stop offset="100%" stop-color="#8b5cf6" />
+              </linearGradient>
+            </defs>
             {(() => {
               let currentAngle = 0;
-              return sortedProjects.map((project, index) => {
-                const time = projectTimeDistribution[project.id];
-                const percentage = (time / totalTime) * 100;
+              const slices: any[] = [];
+              // Project slices
+              sortedProjects.forEach((project) => {
+                const time = selectedDateData.projectTimeDistribution[project.id];
+                const percentage = (time / selectedDateData.totalTime) * 100;
                 const angle = (percentage / 100) * 360;
                 const radius = 80;
                 const centerX = 100;
@@ -873,8 +1028,7 @@ function App() {
                 const labelY = centerY + labelRadius * Math.sin(labelAngle);
                 
                 currentAngle += angle;
-                
-                return (
+                slices.push(
                   <g key={project.id}>
                     <path
                       d={pathData}
@@ -896,12 +1050,65 @@ function App() {
                   </g>
                 );
               });
+
+              // Break slice (single aggregated one)
+              if (selectedDateData.totalBreakMinutes > 0) {
+                const time = selectedDateData.totalBreakMinutes;
+                const percentage = (time / selectedDateData.totalTime) * 100;
+                const angle = (percentage / 100) * 360;
+                const radius = 80;
+                const centerX = 100;
+                const centerY = 100;
+
+                const startAngle = currentAngle * (Math.PI / 180);
+                const endAngle = (currentAngle + angle) * (Math.PI / 180);
+
+                const x1 = centerX + radius * Math.cos(startAngle);
+                const y1 = centerY + radius * Math.sin(startAngle);
+                const x2 = centerX + radius * Math.cos(endAngle);
+                const y2 = centerY + radius * Math.sin(endAngle);
+
+                const largeArcFlag = angle > 180 ? 1 : 0;
+
+                const pathData = [
+                  `M ${centerX} ${centerY}`,
+                  `L ${x1} ${y1}`,
+                  `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                  'Z'
+                ].join(' ');
+
+                const labelAngle = (currentAngle + angle / 2) * (Math.PI / 180);
+                const labelRadius = radius + 15;
+                const labelX = centerX + labelRadius * Math.cos(labelAngle);
+                const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+                currentAngle += angle;
+
+                slices.push(
+                  <g key="break-slice">
+                    <path d={pathData} fill="#000" stroke="url(#breakGradient)" strokeWidth="3" />
+                    <text
+                      x={labelX}
+                      y={labelY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="pie-chart-label"
+                      fontSize="10"
+                      fill="#fff"
+                    >
+                      Break
+                    </text>
+                  </g>
+                );
+              }
+
+              return slices;
             })()}
           </svg>
           <div className="pie-chart-legend">
             {sortedProjects.map(project => {
-              const time = projectTimeDistribution[project.id];
-              const percentage = ((time / totalTime) * 100).toFixed(1);
+              const time = selectedDateData.projectTimeDistribution[project.id];
+              const percentage = ((time / selectedDateData.totalTime) * 100).toFixed(1);
               const hours = Math.floor(time / 60);
               const minutes = time % 60;
               const timeDisplay = hours > 0 
@@ -921,10 +1128,28 @@ function App() {
                 </div>
               );
             })}
+            {selectedDateData.totalBreakMinutes > 0 && (() => {
+              const time = selectedDateData.totalBreakMinutes;
+              const percentage = ((time / selectedDateData.totalTime) * 100).toFixed(1);
+              const hours = Math.floor(time / 60);
+              const minutes = time % 60;
+              const timeDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+              return (
+                <div className="legend-item" key="legend-break">
+                  <div className="legend-color" style={{ background: 'linear-gradient(135deg, #ef4444, #8b5cf6)' }}></div>
+                  <div className="legend-text">
+                    <span className="legend-title">Break</span>
+                    <span className="legend-time">{timeDisplay} ({percentage}%)</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       );
     };
+
+
 
     // Calculate project efficiency data
     const getProjectEfficiencyData = () => {
@@ -1081,18 +1306,67 @@ function App() {
     };
 
         return (
-      <div className="analytics-container">
-        <div className="analytics-section">
-          <h3>Project Time Distribution</h3>
-          {renderPieChart()}
-        </div>
-        
-        <div className="analytics-section">
-          <h3>Project Efficiency</h3>
-          {renderEfficiencyTable()}
-        </div>
-      </div>
-    );
+          <div className="analytics-container">
+            {/* Date selector with navigation */}
+            <div className="date-navigation">
+              <button 
+                className="date-nav-btn date-nav-left"
+                onClick={() => {
+                  const currentDate = new Date(selectedDate);
+                  currentDate.setDate(currentDate.getDate() - 1);
+                  setSelectedDate(currentDate.toISOString().split('T')[0]);
+                }}
+                title="Previous day"
+              >
+                ←
+              </button>
+              
+              <button 
+                className="date-display-btn"
+                onClick={() => setShowCalendar(!showCalendar)}
+              >
+                📅 {new Date(selectedDate).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </button>
+              
+              <button 
+                className="date-nav-btn date-nav-right"
+                onClick={() => {
+                  const currentDate = new Date(selectedDate);
+                  currentDate.setDate(currentDate.getDate() + 1);
+                  // Don't allow future dates
+                  if (currentDate <= new Date()) {
+                    setSelectedDate(currentDate.toISOString().split('T')[0]);
+                  }
+                }}
+                title="Next day"
+              >
+                →
+              </button>
+            </div>
+            {showCalendar && (
+              <div className="calendar-dropdown">
+                {renderCalendar()}
+              </div>
+            )}
+
+            <div className="analytics-content">
+              <div className="analytics-left">
+                <h3>Project Time Distribution ({selectedDate})</h3>
+                {renderPieChart()}
+              </div>
+              
+              <div className="analytics-right">
+                <h3>Project Efficiency ({selectedDate})</h3>
+                {renderEfficiencyTable()}
+              </div>
+            </div>
+          </div>
+        );
   };
 
   // Helper function to get kanban data for a project

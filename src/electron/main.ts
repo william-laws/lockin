@@ -47,9 +47,40 @@ app.on("ready", ()=>{
             mainWindow.setPosition(0, 0);
             mainWindow.setAlwaysOnTop(true);
             mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+            // Hide window traffic lights and disable standard window actions
+            try { mainWindow.setWindowButtonVisibility?.(false); } catch {}
+            try { mainWindow.setClosable(false); } catch {}
+            try { mainWindow.setMinimizable(false); } catch {}
+            try { mainWindow.setMaximizable(false); } catch {}
+            try { mainWindow.setResizable(false); } catch {}
+        } else {
+            // Restore normal window behavior when leaving focus mode
+            mainWindow.setAlwaysOnTop(false);
+            mainWindow.setVisibleOnAllWorkspaces(false);
+            try { mainWindow.setWindowButtonVisibility?.(true); } catch {}
+            try { mainWindow.setClosable(true); } catch {}
+            try { mainWindow.setMinimizable(true); } catch {}
+            try { mainWindow.setMaximizable(true); } catch {}
+            try { mainWindow.setResizable(true); } catch {}
         }
         // Note: when disabling focus mode we intentionally do NOT resize here,
         // so that other modes (e.g., mini focus) can take control without a flash to fullscreen.
+    });
+
+    // Prevent closing while in focus mode
+    mainWindow.on('close', (event) => {
+        if (isFocusMode) {
+            event.preventDefault();
+            // Optionally, flash the window to indicate prevention
+            try { mainWindow.flashFrame(true); } catch {}
+        }
+    });
+
+    // Prevent app quit while in focus mode (e.g., Cmd+Q)
+    app.on('before-quit', (event) => {
+        if (isFocusMode) {
+            event.preventDefault();
+        }
     });
 
     // Remove mini-focus mode support entirely

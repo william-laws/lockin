@@ -125,15 +125,27 @@ export const Kanban = ({ projectId }: KanbanProps) => {
   const [totalPausedTime, setTotalPausedTime] = useState(0);
 
   // Save data to localStorage whenever tasks or columns change
-  const saveToLocalStorage = React.useCallback((newTasks: Task[], newColumns: Column[]) => {
+  const saveToLocalStorage = React.useCallback((newTasks: Task[], newColumns: Column[], breakMinutes?: number) => {
     try {
-      const dataToSave = {
+      const dataToSave: any = {
         tasks: newTasks,
         columns: newColumns,
         lastUpdated: new Date().toISOString()
       };
+      if (typeof breakMinutes === 'number') {
+        dataToSave.breakMinutes = breakMinutes;
+      } else {
+        // Preserve existing breakMinutes value if not explicitly provided
+        const existing = localStorage.getItem(`kanban-${projectId}`);
+        if (existing) {
+          const parsed = JSON.parse(existing);
+          if (typeof parsed.breakMinutes === 'number') {
+            dataToSave.breakMinutes = parsed.breakMinutes;
+          }
+        }
+      }
       localStorage.setItem(`kanban-${projectId}`, JSON.stringify(dataToSave));
-      console.log('Saved data for project:', projectId, 'Tasks:', newTasks.length, 'Columns:', newColumns.length);
+      console.log('Saved data for project:', projectId, 'Tasks:', newTasks.length, 'Columns:', newColumns.length, 'BreakMinutes:', dataToSave.breakMinutes ?? 0);
     } catch (error) {
       console.error('Error saving to localStorage:', error);
     }
@@ -151,6 +163,23 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     const newColumns = getInitialColumns();
     setTasks(newTasks);
     setColumns(newColumns);
+    // Load persisted break minutes for analytics
+    try {
+      const saved = localStorage.getItem(`kanban-${projectId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.breakMinutes === 'number') {
+          setAccumulatedBreakMinutes(parsed.breakMinutes);
+        } else {
+          setAccumulatedBreakMinutes(0);
+        }
+      } else {
+        setAccumulatedBreakMinutes(0);
+      }
+    } catch (e) {
+      console.error('Error loading break minutes:', e);
+      setAccumulatedBreakMinutes(0);
+    }
     console.log('Loaded for project:', projectId, 'Tasks:', newTasks.length, 'Columns:', newColumns.length);
   }, [projectId]);
 
@@ -544,6 +573,12 @@ export const Kanban = ({ projectId }: KanbanProps) => {
     if (breakStartTime) {
       const breakDuration = Math.floor((Date.now() - breakStartTime.getTime()) / 1000);
       setTotalBreakTime(totalBreakTime + breakDuration);
+      // Round down to nearest minute
+      const addedMinutes = Math.floor(breakDuration / 60);
+      const newAccumulated = accumulatedBreakMinutes + addedMinutes;
+      setAccumulatedBreakMinutes(newAccumulated);
+      // Persist updated break minutes
+      saveToLocalStorage(tasks, columns, newAccumulated);
     }
     
     setIsBreakMode(false);
@@ -666,6 +701,8 @@ export const Kanban = ({ projectId }: KanbanProps) => {
 
   // Track break time to subtract from work time
   const [totalBreakTime, setTotalBreakTime] = useState(0);
+  // Persisted break minutes per project for analytics
+  const [accumulatedBreakMinutes, setAccumulatedBreakMinutes] = useState(0);
   
   // Priority popup state
   const [showPriorityPopup, setShowPriorityPopup] = useState<string | null>(null);
@@ -792,9 +829,10 @@ export const Kanban = ({ projectId }: KanbanProps) => {
       {isFocusMode && (
         <div className="focus-header">
           <div className="focus-timer">
-            <span className={cn("timer-display", isBreakMode && "break-timer")}>
-              {isBreakMode ? formatBreakTime(breakTime) : formatElapsedTime(elapsedTime)}
-            </span>
+            <div className="timer-stack">
+              <span className={cn("timer-display timer-focus", !isBreakMode ? "visible" : "hidden")}>{formatElapsedTime(elapsedTime)}</span>
+              <span className={cn("timer-display timer-break break-timer", isBreakMode ? "visible" : "hidden")}>{formatBreakTime(breakTime)}</span>
+            </div>
           </div>
           <div className="focus-controls">
             {isBreakMode && (
