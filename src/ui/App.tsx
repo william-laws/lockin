@@ -56,6 +56,11 @@ function App() {
   const [projectOptionsTitle, setProjectOptionsTitle] = useState('');
   const [projectOptionsColor, setProjectOptionsColor] = useState('#007AFF');
   
+  // Project dragging state
+  const [draggedProject, setDraggedProject] = useState<string | null>(null);
+  const [dragOverProject, setDragOverProject] = useState<string | null>(null);
+  const [projectDropPosition, setProjectDropPosition] = useState<number | null>(null);
+  
   // Calendar view state
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('week')
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -187,6 +192,66 @@ function App() {
     setProjectOptionsColor('#007AFF');
   };
 
+  // Project dragging handlers
+  const handleProjectDragStart = (e: React.DragEvent, projectId: string) => {
+    setDraggedProject(projectId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleProjectDragOver = (e: React.DragEvent, projectId: string) => {
+    e.preventDefault();
+    if (draggedProject && draggedProject !== projectId) {
+      setDragOverProject(projectId);
+      
+      // Calculate drop position based on mouse position
+      const projectElement = e.currentTarget as HTMLElement;
+      const rect = projectElement.getBoundingClientRect();
+      const mouseY = e.clientY;
+      const projectHeight = rect.height;
+      
+      // Find the position where the project should be dropped
+      let position = projects.findIndex(p => p.id === projectId);
+      if (mouseY < rect.top + projectHeight / 2) {
+        position = position;
+      } else {
+        position = position + 1;
+      }
+      
+      setProjectDropPosition(position);
+    }
+  };
+
+  const handleProjectDragLeave = () => {
+    setDragOverProject(null);
+    setProjectDropPosition(null);
+  };
+
+  const handleProjectDrop = (e: React.DragEvent, projectId: string) => {
+    e.preventDefault();
+    if (draggedProject && draggedProject !== projectId) {
+      const draggedIndex = projects.findIndex(p => p.id === draggedProject);
+      const targetIndex = projects.findIndex(p => p.id === projectId);
+      
+      const newProjects = [...projects];
+      const [draggedProjectData] = newProjects.splice(draggedIndex, 1);
+      
+      // Insert at the calculated position
+      const insertIndex = projectDropPosition !== null ? projectDropPosition : targetIndex;
+      newProjects.splice(insertIndex, 0, draggedProjectData);
+      
+      setProjects(newProjects);
+    }
+    setDraggedProject(null);
+    setDragOverProject(null);
+    setProjectDropPosition(null);
+  };
+
+  const handleProjectDragEnd = () => {
+    setDraggedProject(null);
+    setDragOverProject(null);
+    setProjectDropPosition(null);
+  };
+
   // Analytics view transition handlers
   const handleShowAnalytics = () => {
     setIsFadeTransitioning(true);
@@ -240,8 +305,8 @@ function App() {
       const direction = newTab === 'calendar' ? 'left' : newTab === 'analytics' ? 'left' : 'right'
       setTransitionDirection(direction)
       setIsTransitioning(true)
+      setActiveTab(newTab)
       setTimeout(() => {
-        setActiveTab(newTab)
         setIsTransitioning(false)
         setTransitionDirection(null)
       }, 300)
@@ -982,8 +1047,26 @@ function App() {
         .filter(project => selectedDateData.projectTimeDistribution[project.id] > 0)
         .sort((a, b) => selectedDateData.projectTimeDistribution[b.id] - selectedDateData.projectTimeDistribution[a.id]);
 
+      // Limit projects shown in pie chart to prevent overcrowding
+      const maxProjectsInChart = 8;
+      const projectsToShow = sortedProjects.slice(0, maxProjectsInChart);
+      const hasMoreProjects = sortedProjects.length > maxProjectsInChart;
+      
+      // Calculate total time for shown projects
+      const shownProjectsTime = projectsToShow.reduce((sum, project) => 
+        sum + selectedDateData.projectTimeDistribution[project.id], 0
+      );
+      
+      // Calculate "Other" category for remaining projects
+      const otherProjectsTime = selectedDateData.totalTime - shownProjectsTime - selectedDateData.totalBreakMinutes;
+
       return (
         <div className="pie-chart-container">
+          {hasMoreProjects && (
+            <div className="chart-note">
+              <p>Showing top {maxProjectsInChart} projects. {sortedProjects.length - maxProjectsInChart} additional projects grouped as "Other".</p>
+            </div>
+          )}
           <svg className="pie-chart" viewBox="0 0 200 200">
             <defs>
               <linearGradient id="breakGradient" x1="0" y1="0" x2="1" y2="1">
@@ -994,8 +1077,8 @@ function App() {
             {(() => {
               let currentAngle = 0;
               const slices: any[] = [];
-              // Project slices
-              sortedProjects.forEach((project) => {
+              // Project slices (limited to prevent overcrowding)
+              projectsToShow.forEach((project) => {
                 const time = selectedDateData.projectTimeDistribution[project.id];
                 const percentage = (time / selectedDateData.totalTime) * 100;
                 const angle = (percentage / 100) * 360;
@@ -1050,6 +1133,57 @@ function App() {
                   </g>
                 );
               });
+
+              // "Other" projects slice (for projects beyond the limit)
+              if (hasMoreProjects && otherProjectsTime > 0) {
+                const time = otherProjectsTime;
+                const percentage = (time / selectedDateData.totalTime) * 100;
+                const angle = (percentage / 100) * 360;
+                const radius = 80;
+                const centerX = 100;
+                const centerY = 100;
+
+                const startAngle = currentAngle * (Math.PI / 180);
+                const endAngle = (currentAngle + angle) * (Math.PI / 180);
+
+                const x1 = centerX + radius * Math.cos(startAngle);
+                const y1 = centerY + radius * Math.sin(startAngle);
+                const x2 = centerX + radius * Math.cos(endAngle);
+                const y2 = centerY + radius * Math.sin(endAngle);
+
+                const largeArcFlag = angle > 180 ? 1 : 0;
+
+                const pathData = [
+                  `M ${centerX} ${centerY}`,
+                  `L ${x1} ${y1}`,
+                  `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                  'Z'
+                ].join(' ');
+
+                const labelAngle = (currentAngle + angle / 2) * (Math.PI / 180);
+                const labelRadius = radius + 15;
+                const labelX = centerX + labelRadius * Math.cos(labelAngle);
+                const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+                currentAngle += angle;
+
+                slices.push(
+                  <g key="other-projects">
+                    <path d={pathData} fill="#000" stroke="#6b7280" strokeWidth="3" />
+                    <text
+                      x={labelX}
+                      y={labelY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="pie-chart-label"
+                      fontSize="10"
+                      fill="#fff"
+                    >
+                      Other
+                    </text>
+                  </g>
+                );
+              }
 
               // Break slice (single aggregated one)
               if (selectedDateData.totalBreakMinutes > 0) {
@@ -1106,7 +1240,7 @@ function App() {
             })()}
           </svg>
           <div className="pie-chart-legend">
-            {sortedProjects.map(project => {
+            {projectsToShow.map(project => {
               const time = selectedDateData.projectTimeDistribution[project.id];
               const percentage = ((time / selectedDateData.totalTime) * 100).toFixed(1);
               const hours = Math.floor(time / 60);
@@ -1128,6 +1262,24 @@ function App() {
                 </div>
               );
             })}
+            
+            {/* "Other" projects legend item */}
+            {hasMoreProjects && otherProjectsTime > 0 && (() => {
+              const time = otherProjectsTime;
+              const percentage = ((time / selectedDateData.totalTime) * 100).toFixed(1);
+              const hours = Math.floor(time / 60);
+              const minutes = time % 60;
+              const timeDisplay = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+              return (
+                <div className="legend-item" key="legend-other">
+                  <div className="legend-color" style={{ backgroundColor: '#6b7280' }}></div>
+                  <div className="legend-text">
+                    <span className="legend-title">Other Projects</span>
+                    <span className="legend-time">{timeDisplay} ({percentage}%)</span>
+                  </div>
+                </div>
+              );
+            })()}
             {selectedDateData.totalBreakMinutes > 0 && (() => {
               const time = selectedDateData.totalBreakMinutes;
               const percentage = ((time / selectedDateData.totalTime) * 100).toFixed(1);
@@ -1362,7 +1514,9 @@ function App() {
               
               <div className="analytics-right">
                 <h3>Project Efficiency ({selectedDate})</h3>
-                {renderEfficiencyTable()}
+                <div className="scrollable-efficiency-container">
+                  {renderEfficiencyTable()}
+                </div>
               </div>
             </div>
           </div>
@@ -1499,6 +1653,14 @@ function App() {
       {/* Header with centered toggle switcher and analytics button */}
       <header className="header">
         <div className="header-content">
+          <button 
+            className={`google-calendar-icon-button ${isGoogleCalendarConnected ? 'connected' : ''}`}
+            onClick={isGoogleCalendarConnected ? handleDisconnectGoogleCalendar : handleConnectGoogleCalendar}
+            title={isGoogleCalendarConnected ? 'Disconnect Google Calendar' : 'Connect Google Calendar'}
+            disabled={isConnectingGoogleCalendar}
+          >
+            <img src="/src/ui/assets/cal_icon.png" alt="Google Calendar" className="google-calendar-icon" />
+          </button>
           <div className="toggle-container">
             <div className="ios-toggle-switch">
               <div className="toggle-track">
@@ -1523,15 +1685,6 @@ function App() {
             title="Analytics"
           >
             Analytics
-          </button>
-          <button 
-            className={`google-calendar-button ${isGoogleCalendarConnected ? 'connected' : ''}`}
-            onClick={isGoogleCalendarConnected ? handleDisconnectGoogleCalendar : handleConnectGoogleCalendar}
-            title={isGoogleCalendarConnected ? 'Disconnect Google Calendar' : 'Connect Google Calendar'}
-            disabled={isConnectingGoogleCalendar}
-          >
-            {isConnectingGoogleCalendar ? 'Connecting...' : 
-             isGoogleCalendarConnected ? 'Calendar Connected' : 'Connect Google Calendar'}
           </button>
         </div>
       </header>
@@ -1583,11 +1736,17 @@ function App() {
                 )}
               </div>
               <div className="projects-container">
-                {projects.map(project => (
+                {projects.map((project, index) => (
                   <div 
                     key={project.id}
-                    className="project-card"
-                        data-color={project.color || '#007AFF'}
+                    className={`project-card ${draggedProject === project.id ? 'dragging' : ''} ${dragOverProject === project.id ? 'drag-over' : ''}`}
+                    data-color={project.color || '#007AFF'}
+                    draggable
+                    onDragStart={(e) => handleProjectDragStart(e, project.id)}
+                    onDragOver={(e) => handleProjectDragOver(e, project.id)}
+                    onDragLeave={handleProjectDragLeave}
+                    onDrop={(e) => handleProjectDrop(e, project.id)}
+                    onDragEnd={handleProjectDragEnd}
                     onClick={() => handleProjectClick(project.id)}
                   >
                     <div className="project-card-header">
@@ -1617,6 +1776,14 @@ function App() {
                     </div>
                   </div>
                 ))}
+                
+                {/* Project drop indicators */}
+                {dragOverProject && projectDropPosition !== null && (
+                  <div 
+                    className="project-drop-indicator"
+                    style={{ order: projectDropPosition }}
+                  />
+                )}
               </div>
             </div>
           </div>

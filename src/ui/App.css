@@ -45,6 +45,7 @@ body {
   max-width: 800px;
   position: relative;
   -webkit-app-region: no-drag;
+  gap: 16px;
 }
 
 .toggle-container {
@@ -204,6 +205,65 @@ body {
 .google-calendar-button:disabled:hover {
   background-color: #8E8E93;
   transform: none;
+}
+
+/* Google Calendar Icon Button */
+.google-calendar-icon-button {
+  background-color: transparent;
+  border: 2px solid #FF3B30;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+}
+
+.google-calendar-icon-button:hover {
+  background-color: #FF3B30;
+  transform: translateY(-1px);
+}
+
+.google-calendar-icon-button:active {
+  transform: translateY(0);
+}
+
+.google-calendar-icon-button.connected {
+  border-color: #34C759;
+}
+
+.google-calendar-icon-button.connected:hover {
+  background-color: #34C759;
+}
+
+.google-calendar-icon-button:disabled {
+  border-color: #8E8E93;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.google-calendar-icon-button:disabled:hover {
+  background-color: transparent;
+  transform: none;
+}
+
+.google-calendar-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.google-calendar-icon-button.connected .google-calendar-icon {
+  filter: brightness(0) invert(1);
+}
+
+.google-calendar-icon-button:hover .google-calendar-icon {
+  filter: brightness(0) invert(1);
 }
 
 .sr-only {
@@ -431,6 +491,7 @@ body {
   grid-template-columns: repeat(auto-fill, 200px);
   gap: 16px;
   align-content: flex-start;
+  position: relative;
 }
 
 .project-card {
@@ -484,6 +545,29 @@ body {
 
 .project-card[data-color="#4ECDC4"]:hover {
   border-color: #4ECDC4;
+}
+
+/* Project dragging styles */
+.project-card.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+  z-index: 1000;
+}
+
+.project-card.drag-over {
+  border-color: #3b82f6;
+  border-width: 2px;
+  transform: scale(1.02);
+}
+
+.project-drop-indicator {
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: #3b82f6;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 999;
 }
 
 .project-card h3 {
@@ -1026,7 +1110,7 @@ body {
 
 .analytics-left h3,
 .analytics-right h3 {
-  margin: 0 0 20px 0;
+  margin: 0 0 12px 0;
   color: #ffffff;
   font-size: 18px;
   font-weight: 600;
@@ -3283,6 +3367,21 @@ body {
   flex: 1;
 }
 
+.chart-note {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.chart-note p {
+  margin: 0;
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: center;
+}
+
 .pie-chart {
   width: 250px;
   height: 250px;
@@ -3349,6 +3448,31 @@ body {
   flex: 1;
   overflow: auto;
   min-height: 0;
+}
+
+.scrollable-efficiency-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.scrollable-efficiency-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollable-efficiency-container::-webkit-scrollbar-track {
+  background: #222;
+  border-radius: 4px;
+}
+
+.scrollable-efficiency-container::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.scrollable-efficiency-container::-webkit-scrollbar-thumb:hover {
+  background: #777;
 }
 
 .efficiency-table {
